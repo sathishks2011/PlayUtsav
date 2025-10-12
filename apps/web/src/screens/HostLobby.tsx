@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { addTeamThunk } from '../store/slices/sessionSlice';
 import { HostQuizPanel } from '../components/HostQuizPanel';
 import { ThemeStudioPanel } from '../components/ThemeStudioPanel';
-import { computeTeamScores } from '../lib/score';
+import { computeTeamScores } from '@pkg/core';
 
 function TeamCard({ team }: { team: Team }) {
   return (
@@ -97,7 +97,7 @@ export function HostLobby() {
             ))}
             {lobbyParticipants.length === 0 && (
               <li className="italic opacity-60">
-                <FormattedMessage id="hostLobby.waiting" defaultMessage="Waiting for players…" />
+                <FormattedMessage id="hostLobby.waiting" defaultMessage="Waiting for players..." />
               </li>
             )}
           </ul>
@@ -153,12 +153,19 @@ export function HostLobby() {
             <FormattedMessage id="hostLobby.scoreboard" defaultMessage="Scoreboard" />
           </h3>
           <div className="grid gap-3 md:grid-cols-2">
-            {scores.map(({ team, total }) => (
-              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between">
-                <span className="font-semibold" style={{ color: team.color ?? 'var(--color-primary)' }}>
-                  {team.name}
-                </span>
-                <span className="text-xl font-bold">{total}</span>
+            {scores.map(({ team, total, streak }) => (
+              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold" style={{ color: team.color ?? 'var(--color-primary)' }}>
+                    {team.name}
+                  </span>
+                  <span className="text-xl font-bold">{total}</span>
+                </div>
+                {streak > 0 && (
+                  <div className="text-xs uppercase tracking-[0.2em] text-emerald-200 mt-2">
+                    <FormattedMessage id="hostLobby.streak" defaultMessage="Streak: {count}" values={{ count: streak }} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -170,4 +177,5 @@ export function HostLobby() {
     </div>
   );
 }
+
 

@@ -11,12 +11,24 @@ export function PlayerQuizPanel() {
   const sessionId = useAppSelector((s) => s.session.current?.id);
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   if (!quiz || !sessionId || !participantId) return null;
 
   useEffect(() => {
     setSelected(null);
     setSubmitted(false);
+  }, [quiz.questionId, quiz.status]);
+
+  useEffect(() => {
+    const compute = () => {
+      const start = new Date(quiz.createdAt).getTime();
+      const remaining = quiz.duration - (Date.now() - start) / 1000;
+      return Math.max(Number.isFinite(remaining) ? remaining : 0, 0);
+    };
+    setTimeLeft(compute());
+    const interval = window.setInterval(() => setTimeLeft(compute()), 500);
+    return () => window.clearInterval(interval);
   }, [quiz.questionId, quiz.status]);
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -28,6 +40,10 @@ export function PlayerQuizPanel() {
 
   const hasRevealed = quiz.status === 'revealed';
   const statusLabel = intl.formatMessage({ id: `playerQuiz.state.${quiz.status}`, defaultMessage: quiz.status });
+  const progress = (() => {
+    if (quiz.duration <= 0 || timeLeft == null) return 0;
+    return Math.max(Math.min(timeLeft / quiz.duration, 1), 0);
+  })();
   
   const disabled = selected == null || hasRevealed || submitted || quiz.status !== 'running';
 
@@ -42,6 +58,20 @@ export function PlayerQuizPanel() {
         </span>
       </div>
       <p className="text-lg font-medium">{quiz.prompt}</p>
+      <div className="text-xs uppercase tracking-[0.2em] opacity-70">
+        {quiz.status === 'running' ? (
+          <FormattedMessage
+            id="playerQuiz.timer"
+            defaultMessage="Time left: {seconds}s"
+            values={{ seconds: Math.ceil(timeLeft ?? quiz.duration) }}
+          />
+        ) : (
+          <FormattedMessage id="hostQuiz.statusComplete" defaultMessage="Round complete" />
+        )}
+      </div>
+      <div className="timer-bar">
+        <span style={{ transform: `scaleX(${progress})` }} />
+      </div>
       <form onSubmit={handleSubmit} className="space-y-3">
         {quiz.options.map((option, index) => (
           <label

@@ -45,7 +45,7 @@ export default function App() {
         {role === null && status !== 'loading' && <Landing />}
         {status === 'loading' && role === null && (
           <div className="py-20 text-center text-lg opacity-80">
-            <FormattedMessage id="app.loading" defaultMessage="Preparing your session…" />
+            <FormattedMessage id="app.loading" defaultMessage="Preparing your session..." />
           </div>
         )}
       </main>

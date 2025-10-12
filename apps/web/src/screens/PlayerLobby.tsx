@@ -1,6 +1,6 @@
 import { FormattedMessage } from 'react-intl';
 import { useAppSelector } from '../store/hooks';
-import { computeTeamScores } from '../lib/score';
+import { computeTeamScores } from '@pkg/core';
 import { PlayerQuizPanel } from '../components/PlayerQuizPanel';
 
 export function PlayerLobby() {
@@ -94,10 +94,17 @@ export function PlayerLobby() {
             <FormattedMessage id="hostLobby.scoreboard" defaultMessage="Scoreboard" />
           </h3>
           <div className="grid gap-3 md:grid-cols-2">
-            {scores.map(({ team, total }) => (
-              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between">
-                <span style={{ color: team.color ?? 'var(--color-accent)' }}>{team.name}</span>
-                <span className="font-semibold text-lg">{total}</span>
+            {scores.map(({ team, total, streak }) => (
+              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span style={{ color: team.color ?? 'var(--color-accent)' }}>{team.name}</span>
+                  <span className="font-semibold text-lg">{total}</span>
+                </div>
+                {streak > 0 && (
+                  <div className="text-xs uppercase tracking-[0.2em] text-emerald-200 mt-2">
+                    <FormattedMessage id="hostLobby.streak" defaultMessage="Streak: {count}" values={{ count: streak }} />
+                  </div>
+                )}
               </div>
             ))}
           </div>

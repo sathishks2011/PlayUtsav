@@ -41,7 +41,7 @@ export function addTeam(sessionId: string, payload: { name: string; color?: stri
 
 export function startQuiz(
   sessionId: string,
-  payload: { questionId: string; prompt: string; options: string[] }
+  payload: { questionId: string; prompt: string; options: string[]; duration?: number }
 ) {
   return request<QuizState>(`/sessions/${sessionId}/quiz/start`, {
     method: 'POST',
@@ -53,7 +53,7 @@ export function submitQuizAnswer(
   sessionId: string,
   payload: { participantId: string; answer: number }
 ) {
-  return request<QuizState>(`/sessions/${sessionId}/quiz/submit`, {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/submit`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -63,7 +63,7 @@ export function revealQuiz(
   sessionId: string,
   payload: { correctOption: number | null; awards?: { teamId: string; delta: number; reason?: string }[] }
 ) {
-  return request<QuizState>(`/sessions/${sessionId}/quiz/reveal`, {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/reveal`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

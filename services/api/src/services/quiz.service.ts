@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 import { SessionsService } from './sessions.service';
 
 type QuizState = {
@@ -6,81 +7,158 @@ type QuizState = {
   questionId: string;
   prompt: string;
   options: string[];
-  status: 'idle' | 'running' | 'revealed';
+  status: 'running' | 'revealed';
   correctOption: number | null;
+  duration: number;
+  createdAt: string;
   answers: Array<{ participantId: string; answer: number; displayName: string }>;
 };
 
 @Injectable()
 export class QuizService {
-  private readonly quizzes = new Map<string, QuizState>();
+  constructor(private readonly prisma: PrismaService, private readonly sessions: SessionsService) {}
 
-  constructor(private readonly sessions: SessionsService) {}
+  private toState(round: {
+    id: string;
+    sessionId: string;
+    questionId: string;
+    prompt: string;
+    status: string;
+    correctOption: number | null;
+    duration: number;
+    createdAt: Date;
+    options: { index: number; text: string }[];
+    answers: { participantId: string; answer: number; displayName: string }[];
+  }): QuizState {
+    const normalizedStatus: QuizState['status'] = round.status === 'revealed' ? 'revealed' : 'running';
 
-  async start(sessionId: string, payload: { questionId: string; prompt: string; options: string[] }) {
+    return {
+      sessionId: round.sessionId,
+      questionId: round.questionId,
+      prompt: round.prompt,
+      options: round.options
+        .sort((a, b) => a.index - b.index)
+        .map((option) => option.text),
+      status: normalizedStatus,
+      correctOption: round.correctOption,
+      duration: round.duration,
+      createdAt: round.createdAt.toISOString(),
+      answers: round.answers.map((answer) => ({
+        participantId: answer.participantId,
+        answer: answer.answer,
+        displayName: answer.displayName,
+      })),
+    };
+  }
+
+  private async fetchActiveRound(sessionId: string) {
+    const round = await this.prisma.quizRound.findFirst({
+      where: { sessionId },
+      orderBy: { createdAt: 'desc' },
+      include: { options: true, answers: true },
+    });
+    return round ? this.toState(round) : null;
+  }
+
+  async start(
+    sessionId: string,
+    payload: { questionId: string; prompt: string; options: string[]; duration?: number }
+  ) {
     await this.sessions.ensureSession(sessionId);
     if (payload.options.length < 2) {
       throw new BadRequestException('Quiz requires at least two options');
     }
 
-    const state: QuizState = {
-      sessionId,
-      questionId: payload.questionId,
-      prompt: payload.prompt,
-      options: payload.options,
-      status: 'running',
-      correctOption: null,
-      answers: [],
-    };
-    this.quizzes.set(sessionId, state);
-    return state;
+    await this.prisma.quizRound.updateMany({
+      where: { sessionId, status: 'running' },
+      data: { status: 'archived' },
+    });
+
+    const round = await this.prisma.quizRound.create({
+      data: {
+        sessionId,
+        questionId: payload.questionId,
+        prompt: payload.prompt,
+        duration: payload.duration ?? 30,
+        options: {
+          create: payload.options.map((text, index) => ({ index, text })),
+        },
+      },
+      include: { options: true, answers: true },
+    });
+
+    return this.toState(round);
   }
 
   async submit(sessionId: string, participantId: string, answer: number) {
-    const quiz = this.quizzes.get(sessionId);
-    if (!quiz || quiz.status !== 'running') {
-      throw new BadRequestException('No active quiz');
-    }
-
-    if (answer < 0 || answer >= quiz.options.length) {
-      throw new BadRequestException('Answer index out of range');
-    }
+    const round = await this.prisma.quizRound.findFirst({
+      where: { sessionId, status: { in: ['running', 'revealed'] } },
+      orderBy: { createdAt: 'desc' },
+      include: { options: true },
+    });
+    if (!round) throw new BadRequestException('No active quiz');
+    if (round.status !== 'running') throw new BadRequestException('Quiz already revealed');
+    if (answer < 0 || answer >= round.options.length) throw new BadRequestException('Answer index out of range');
 
     const participant = await this.sessions.findParticipant(participantId);
     if (!participant || participant.sessionId !== sessionId) {
       throw new NotFoundException('Participant not found in session');
     }
 
-    const existingIndex = quiz.answers.findIndex((entry) => entry.participantId === participantId);
-    const entry = { participantId, answer, displayName: participant.displayName };
-    if (existingIndex >= 0) {
-      quiz.answers[existingIndex] = entry;
-    } else {
-      quiz.answers.push(entry);
-    }
+    await this.prisma.quizAnswer.upsert({
+      where: { quizRoundId_participantId: { quizRoundId: round.id, participantId } },
+      create: {
+        quizRoundId: round.id,
+        participantId,
+        answer,
+        displayName: participant.displayName,
+      },
+      update: {
+        answer,
+        displayName: participant.displayName,
+      },
+    });
 
-    return quiz;
+    return this.fetchActiveRound(sessionId);
   }
 
-  async reveal(sessionId: string, correctOption: number | null) {
-    const quiz = this.quizzes.get(sessionId);
-    if (!quiz) {
-      throw new BadRequestException('No active quiz');
-    }
-    if (correctOption != null && (correctOption < 0 || correctOption >= quiz.options.length)) {
+  async reveal(
+    sessionId: string,
+    payload: { correctOption: number | null; awards?: { teamId: string; delta: number; reason?: string }[] }
+  ) {
+    const round = await this.prisma.quizRound.findFirst({
+      where: { sessionId, status: { in: ['running', 'revealed'] } },
+      orderBy: { createdAt: 'desc' },
+      include: { options: true },
+    });
+    if (!round) throw new BadRequestException('No active quiz');
+
+    if (
+      payload.correctOption != null &&
+      (payload.correctOption < 0 || payload.correctOption >= round.options.length)
+    ) {
       throw new BadRequestException('Correct option out of range');
     }
-    quiz.status = 'revealed';
-    quiz.correctOption = correctOption;
-    return quiz;
+
+    await this.prisma.quizRound.update({
+      where: { id: round.id },
+      data: {
+        status: 'revealed',
+        correctOption: payload.correctOption,
+      },
+    });
+
+    if (payload.awards) {
+      for (const award of payload.awards) {
+        // eslint-disable-next-line no-await-in-loop
+        await this.sessions.adjustScore(sessionId, award.teamId, award.delta, award.reason ?? 'quiz-award');
+      }
+    }
+
+    return this.fetchActiveRound(sessionId);
   }
 
-  get(sessionId: string) {
-    return this.quizzes.get(sessionId) ?? null;
-  }
-
-  reset(sessionId: string) {
-    this.quizzes.delete(sessionId);
+  async get(sessionId: string) {
+    return this.fetchActiveRound(sessionId);
   }
 }
-

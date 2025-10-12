@@ -7,9 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  HOST
+}
+
 model User {
-  id          String  @id @default(cuid())
-  displayName String
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  role         UserRole    @default(HOST)
+  displayName  String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  hostProfile  HostProfile?
+  sessions     Session[]
+  tokens       UserSession[]
+}
+
+model HostProfile {
+  id            String   @id @default(cuid())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String   @unique
+  organization  String?
+  contactEmail  String?
+  contactPhone  String?
+  timezone      String?   @default("UTC")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model UserSession {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  refreshToken String  @unique
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
   createdAt   DateTime @default(now())
 }
 
@@ -18,6 +53,8 @@ model Session {
   code         String          @unique
   status       String          @default("LOBBY")
   hostName     String?
+  host         User?           @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  hostId       String?
   maxPlayers   Int             @default(4)
   language     String          @default("en")
   createdAt    DateTime        @default(now())
@@ -60,6 +97,43 @@ model Score {
   reason     String?
   recordedBy String?
   recordedAt DateTime @default(now())
+}
+
+model QuizRound {
+  id            String      @id @default(cuid())
+  session       Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId     String
+  questionId    String
+  prompt        String
+  status        String      @default("running")
+  correctOption Int?
+  duration      Int         @default(30)
+  createdAt     DateTime    @default(now())
+  options       QuizOption[]
+  answers       QuizAnswer[]
+}
+
+model QuizOption {
+  id          String     @id @default(cuid())
+  quizRound   QuizRound  @relation(fields: [quizRoundId], references: [id], onDelete: Cascade)
+  quizRoundId String
+  index       Int
+  text        String
+
+  @@unique([quizRoundId, index])
+}
+
+model QuizAnswer {
+  id            String      @id @default(cuid())
+  quizRound     QuizRound   @relation(fields: [quizRoundId], references: [id], onDelete: Cascade)
+  quizRoundId   String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participantId String
+  answer        Int
+  displayName   String
+  createdAt     DateTime    @default(now())
+
+  @@unique([quizRoundId, participantId])
 }
 
 model Template {

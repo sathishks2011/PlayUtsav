@@ -57,5 +57,7 @@ export type QuizState = {
   options: string[];
   status: 'idle' | 'running' | 'revealed';
   correctOption: number | null;
+  duration: number;
+  createdAt: string;
   answers: Array<{ participantId: string; answer: number; displayName: string }>;
 };

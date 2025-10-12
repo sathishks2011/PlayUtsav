@@ -8,6 +8,7 @@ const startSchema = z.object({
   questionId: z.string().min(1),
   prompt: z.string().min(1),
   options: z.array(z.string().min(1)).min(2),
+  duration: z.number().int().min(5).max(120).optional(),
 });
 
 const submitSchema = z.object({
@@ -58,13 +59,7 @@ export class QuizController {
   async reveal(@Param('sessionId') sessionId: string, @Body() body: unknown) {
     const parsed = revealSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    if (parsed.data.awards) {
-      for (const award of parsed.data.awards) {
-        // eslint-disable-next-line no-await-in-loop
-        await this.sessions.adjustScore(sessionId, award.teamId, award.delta, award.reason ?? 'quiz-award');
-      }
-    }
-    const quizState = await this.quiz.reveal(sessionId, parsed.data.correctOption ?? null);
+    const quizState = await this.quiz.reveal(sessionId, parsed.data);
     await this.gateway.emitQuizUpdate(sessionId, quizState);
     const snapshot = await this.sessions.getSnapshot(sessionId);
     if (snapshot) {
@@ -78,4 +73,3 @@ export class QuizController {
     return this.quiz.get(sessionId);
   }
 }
-

@@ -1,84 +1,190 @@
-import { Test } from '@nestjs/testing';
-import { QuizService } from '../services/quiz.service';
-import { SessionsService } from '../services/sessions.service';
+﻿import { QuizService } from '../services/quiz.service';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('QuizService', () => {
+  const now = new Date();
   let service: QuizService;
-  let sessions: jest.Mocked<SessionsService>;
+  const mockPrisma = {
+    quizRound: {
+      updateMany: jest.fn(),
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+    },
+    quizAnswer: {
+      upsert: jest.fn(),
+    },
+  } as unknown as {
+    quizRound: {
+      updateMany: jest.Mock;
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+    };
+    quizAnswer: {
+      upsert: jest.Mock;
+    };
+  };
 
-  beforeEach(async () => {
-    const module = await Test.createTestingModule({
-      providers: [
-        QuizService,
-        {
-          provide: SessionsService,
-          useValue: {
-            ensureSession: jest.fn().mockResolvedValue({ id: 'session-1' }),
-            findParticipant: jest.fn().mockImplementation((id: string) =>
-              Promise.resolve({ id, sessionId: 'session-1', displayName: `P-${id}` })
-            ),
-          },
-        },
+  const mockSessions = {
+    ensureSession: jest.fn().mockResolvedValue({ id: 'session-1' }),
+    findParticipant: jest.fn().mockResolvedValue({ id: 'p1', sessionId: 'session-1', displayName: 'Sam' }),
+    adjustScore: jest.fn().mockResolvedValue(undefined),
+  } as any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    service = new QuizService(mockPrisma as any, mockSessions);
+  });
+
+  it('creates a quiz round with options', async () => {
+    (mockPrisma.quizRound.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    (mockPrisma.quizRound.create as jest.Mock).mockResolvedValue({
+      id: 'round-1',
+      sessionId: 'session-1',
+      questionId: 'q1',
+      prompt: 'Sample?',
+      status: 'running',
+      correctOption: null,
+      duration: 20,
+      createdAt: now,
+      options: [
+        { index: 0, text: 'A' },
+        { index: 1, text: 'B' },
       ],
-    }).compile();
-
-    service = module.get(QuizService);
-    sessions = module.get(SessionsService);
-  });
-
-  it('starts a quiz with given question', async () => {
-    const quiz = await service.start('session-1', {
-      questionId: 'q1',
-      prompt: 'Sample?',
-      options: ['A', 'B', 'C'],
+      answers: [],
     });
-    expect(quiz.status).toBe('running');
-    expect(quiz.options).toHaveLength(3);
-  });
 
-  it('records submissions and overrides previous answer', async () => {
-    await service.start('session-1', {
+    const state = await service.start('session-1', {
       questionId: 'q1',
       prompt: 'Sample?',
       options: ['A', 'B'],
+      duration: 20,
     });
-    await service.submit('session-1', 'p1', 0);
-    const quiz = await service.submit('session-1', 'p1', 1);
-    expect(quiz.answers).toHaveLength(1);
-    expect(quiz.answers[0].answer).toBe(1);
+
+    expect(state.options).toEqual(['A', 'B']);
+    expect(state.duration).toBe(20);
+    expect(mockPrisma.quizRound.updateMany).toHaveBeenCalled();
   });
 
-  it('reveals quiz and stores correct option', async () => {
-    await service.start('session-1', {
+  it('records answers and returns latest state', async () => {
+    (mockPrisma.quizRound.findFirst as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'round-1',
+        sessionId: 'session-1',
+        questionId: 'q1',
+        prompt: 'Sample?',
+        status: 'running',
+        correctOption: null,
+        duration: 30,
+        createdAt: now,
+        options: [
+          { index: 0, text: 'A' },
+          { index: 1, text: 'B' },
+        ],
+        answers: [],
+      })
+      .mockResolvedValueOnce({
+        id: 'round-1',
+        sessionId: 'session-1',
+        questionId: 'q1',
+        prompt: 'Sample?',
+        status: 'running',
+        correctOption: null,
+        duration: 30,
+        createdAt: now,
+        options: [
+          { index: 0, text: 'A' },
+          { index: 1, text: 'B' },
+        ],
+        answers: [
+          { participantId: 'p1', answer: 1, displayName: 'Sam' },
+        ],
+      });
+
+    const state = await service.submit('session-1', 'p1', 1);
+    expect(mockPrisma.quizAnswer.upsert).toHaveBeenCalled();
+    expect(state?.answers).toHaveLength(1);
+  });
+
+  it('reveals quiz and awards teams', async () => {
+    (mockPrisma.quizRound.findFirst as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'round-1',
+        sessionId: 'session-1',
+        questionId: 'q1',
+        prompt: 'Sample?',
+        status: 'running',
+        correctOption: null,
+        duration: 30,
+        createdAt: now,
+        options: [
+          { index: 0, text: 'A' },
+          { index: 1, text: 'B' },
+        ],
+        answers: [],
+      })
+      .mockResolvedValueOnce({
+        id: 'round-1',
+        sessionId: 'session-1',
+        questionId: 'q1',
+        prompt: 'Sample?',
+        status: 'revealed',
+        correctOption: 1,
+        duration: 30,
+        createdAt: now,
+        options: [
+          { index: 0, text: 'A' },
+          { index: 1, text: 'B' },
+        ],
+        answers: [],
+      });
+
+    const state = await service.reveal('session-1', {
+      correctOption: 1,
+      awards: [{ teamId: 'team-1', delta: 10 }],
+    });
+
+    expect(mockPrisma.quizRound.update).toHaveBeenCalled();
+    expect(mockSessions.adjustScore).toHaveBeenCalledWith('session-1', 'team-1', 10, 'quiz-award');
+    expect(state?.status).toBe('revealed');
+  });
+
+  it('validates option indexes on submit', async () => {
+    (mockPrisma.quizRound.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'round-1',
+      sessionId: 'session-1',
       questionId: 'q1',
       prompt: 'Sample?',
-      options: ['A', 'B'],
+      status: 'running',
+      correctOption: null,
+      duration: 30,
+      createdAt: now,
+      options: [{ index: 0, text: 'A' }],
+      answers: [],
     });
-    const quiz = await service.reveal('session-1', 1);
-    expect(quiz.status).toBe('revealed');
-    expect(quiz.correctOption).toBe(1);
+
+    await expect(service.submit('session-1', 'p1', 5)).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('throws when quiz missing', async () => {
-    await expect(service.submit('session-1', 'p1', 0)).rejects.toThrow('No active quiz');
-  });
-
-  it('rejects invalid option index', async () => {
-    await service.start('session-1', {
+  it('throws when participant is missing', async () => {
+    (mockPrisma.quizRound.findFirst as jest.Mock).mockResolvedValueOnce({
+      id: 'round-1',
+      sessionId: 'session-1',
       questionId: 'q1',
       prompt: 'Sample?',
-      options: ['A', 'B'],
+      status: 'running',
+      correctOption: null,
+      duration: 30,
+      createdAt: now,
+      options: [
+        { index: 0, text: 'A' },
+        { index: 1, text: 'B' },
+      ],
+      answers: [],
     });
-    await expect(service.submit('session-1', 'p1', 9)).rejects.toThrow('Answer index out of range');
-  });
+    mockSessions.findParticipant.mockResolvedValueOnce(null);
 
-  it('rejects invalid reveal index', async () => {
-    await service.start('session-1', {
-      questionId: 'q1',
-      prompt: 'Sample?',
-      options: ['A', 'B'],
-    });
-    await expect(service.reveal('session-1', 5)).rejects.toThrow('Correct option out of range');
+    await expect(service.submit('session-1', 'missing', 0)).rejects.toBeInstanceOf(NotFoundException);
   });
 });
-

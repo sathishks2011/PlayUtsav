@@ -8,6 +8,8 @@ const baseQuiz: QuizState = {
   options: ['A', 'B'],
   status: 'running',
   correctOption: null,
+  duration: 30,
+  createdAt: new Date().toISOString(),
   answers: [],
 };
 
@@ -24,7 +26,14 @@ describe('quizSlice reducer', () => {
   });
 
   it('handles start fulfilled', () => {
-    const state = reducer(undefined, startQuizThunk.fulfilled(baseQuiz, '', { sessionId: 'session-1', questionId: 'q1', prompt: 'Prompt', options: ['A', 'B'] }));
+    const state = reducer(
+      undefined,
+      startQuizThunk.fulfilled(
+        baseQuiz,
+        '',
+        { sessionId: 'session-1', questionId: 'q1', prompt: 'Prompt', options: ['A', 'B'], duration: 30 }
+      )
+    );
     expect(state.current?.questionId).toBe('q1');
   });
 
@@ -46,4 +55,3 @@ describe('quizSlice reducer', () => {
     expect(state.current?.status).toBe('revealed');
   });
 });
-

@@ -63,7 +63,7 @@ export function Landing() {
           disabled={isBusy}
         >
           {isBusy ? (
-            <FormattedMessage id="landing.creating" defaultMessage="Creating…" />
+            <FormattedMessage id="landing.creating" defaultMessage="Creating..." />
           ) : (
             <FormattedMessage id="landing.create" defaultMessage="Create session" />
           )}
@@ -97,7 +97,7 @@ export function Landing() {
         </label>
         <button type="submit" className="px-4 py-2 rounded bg-[var(--color-accent)] text-black font-semibold" disabled={isBusy}>
           {isBusy ? (
-            <FormattedMessage id="landing.joining" defaultMessage="Joining…" />
+            <FormattedMessage id="landing.joining" defaultMessage="Joining..." />
           ) : (
             <FormattedMessage id="landing.join" defaultMessage="Join session" />
           )}
@@ -107,4 +107,5 @@ export function Landing() {
     </div>
   );
 }
+
 

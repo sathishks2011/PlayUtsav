@@ -18,11 +18,12 @@ const initialState: QuizSliceState = {
 
 export const startQuizThunk = createAsyncThunk(
   'quiz/start',
-  async (payload: { sessionId: string; questionId: string; prompt: string; options: string[] }) => {
+  async (payload: { sessionId: string; questionId: string; prompt: string; options: string[]; duration?: number }) => {
     const quiz = await startQuiz(payload.sessionId, {
       questionId: payload.questionId,
       prompt: payload.prompt,
       options: payload.options,
+      duration: payload.duration,
     });
     return quiz;
   }
@@ -81,14 +82,14 @@ const quizSlice = createSlice({
         state.error = action.error.message;
       })
       .addCase(submitQuizAnswerThunk.fulfilled, (state, action) => {
-        state.current = action.payload;
+        if (action.payload) state.current = action.payload;
         state.lastAction = 'submit';
       })
       .addCase(submitQuizAnswerThunk.rejected, (state, action) => {
         state.error = action.error.message;
       })
       .addCase(revealQuizThunk.fulfilled, (state, action) => {
-        state.current = action.payload;
+        if (action.payload) state.current = action.payload;
         state.lastAction = 'reveal';
       })
       .addCase(revealQuizThunk.rejected, (state, action) => {

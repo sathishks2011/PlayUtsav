@@ -49,3 +49,6 @@ Sprint 2 Highlights
 - Quiz round APIs with host/player flows, live Socket.IO updates, and score awards.
 - Theme Studio with presets + custom palettes persisted to local storage.
 - Locale Lab with live English/Spanish switching.
+
+Backlog Ideas
+- Introduce role-based accounts: platform administrators manage vendors/content, event hosts configure sessions, players see join/metrics only.
