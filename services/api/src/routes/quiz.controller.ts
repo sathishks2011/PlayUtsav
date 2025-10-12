@@ -1,8 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { QuizService } from '../services/quiz.service';
 import { SessionsService } from '../services/sessions.service';
 import { SessionGateway } from '../gateways/session.gateway';
+import { JwtAuthGuard } from '../auth/jwtAuth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 const startSchema = z.object({
   questionId: z.string().min(1),
@@ -38,6 +41,8 @@ export class QuizController {
   ) {}
 
   @Post('start')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
   async start(@Param('sessionId') sessionId: string, @Body() body: unknown) {
     const parsed = startSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
@@ -56,6 +61,8 @@ export class QuizController {
   }
 
   @Post('reveal')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
   async reveal(@Param('sessionId') sessionId: string, @Body() body: unknown) {
     const parsed = revealSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());

@@ -1,7 +1,11 @@
-import { Body, Controller, Get, Param, Post, BadRequestException } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, BadRequestException, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { SessionsService } from '../services/sessions.service';
 import { SessionGateway } from '../gateways/session.gateway';
+import { JwtAuthGuard } from '../auth/jwtAuth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
 
 const CreateSessionDto = z.object({
   hostName: z.string().min(2).max(60).optional(),
@@ -25,10 +29,12 @@ export class SessionsController {
   }
 
   @Post()
-  async create(@Body() body: unknown) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async create(@Body() body: unknown, @CurrentUser() user: { userId: string; role: string }) {
     const parsed = CreateSessionDto.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    const session = await this.sessions.create(parsed.data);
+    const session = await this.sessions.create({ ...parsed.data, hostId: user.userId });
     await this.gateway.emitSessionUpdate(session.id);
     return session;
   }
@@ -43,6 +49,8 @@ export class SessionsController {
   }
 
   @Post('/:id/teams')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
   async addTeam(@Param('id') id: string, @Body() body: unknown) {
     const parsed = CreateTeamDto.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
@@ -52,6 +60,8 @@ export class SessionsController {
   }
 
   @Post('/:id/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
   async updateStatus(@Param('id') id: string, @Body() body: unknown) {
     const parsed = UpdateStatusDto.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());

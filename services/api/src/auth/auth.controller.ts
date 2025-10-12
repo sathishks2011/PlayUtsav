@@ -3,6 +3,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import { AuthService } from './auth.service';
 import { JWT_COOKIE_NAME } from './jwt.strategy';
+import { JwtAuthGuard } from './jwtAuth.guard';
 import { Roles } from './roles.decorator';
 import { CurrentUser } from './current-user.decorator';
 

@@ -7,16 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  HOST
-}
-
 model User {
   id           String      @id @default(cuid())
   email        String      @unique
   passwordHash String
-  role         UserRole    @default(HOST)
+  role         String      @default("HOST")
   displayName  String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
@@ -62,6 +57,7 @@ model Session {
   teams        Team[]
   participants Participant[]
   scores       Score[]
+  quizRounds   QuizRound[]
 }
 
 model Team {
@@ -84,6 +80,7 @@ model Participant {
   displayName String
   role       String          @default("PLAYER")
   joinedAt   DateTime @default(now())
+  quizAnswers QuizAnswer[]
 }
 
 model Score {
