@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.png'],
       manifest: {
-        name: 'Family Fun',
-        short_name: 'FamilyFun',
+        name: 'PlayUtsav',
+        short_name: 'PlayUtsav',
         start_url: '/',
         display: 'standalone',
         background_color: '#0b1020',

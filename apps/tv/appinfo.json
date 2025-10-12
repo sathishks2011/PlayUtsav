@@ -1,12 +1,11 @@
 {
-  "id": "com.familyfun.app",
+  "id": "com.playutsav.app",
   "version": "1.0.0",
-  "vendor": "FamilyFun",
+  "vendor": "PlayUtsav",
   "type": "web",
   "main": "index.html",
-  "title": "Family Fun",
+  "title": "PlayUtsav",
   "bgColor": "#000000",
   "icon": "icon.png",
   "uiRevision": 2
 }
-

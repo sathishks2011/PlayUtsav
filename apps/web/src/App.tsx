@@ -22,7 +22,7 @@ export default function App() {
       <header className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
-            <FormattedMessage id="app.title" defaultMessage="Family Fun" />
+            <FormattedMessage id="app.title" defaultMessage="PlayUtsav" />
           </h1>
           <p className="text-sm opacity-75">
             <FormattedMessage id="app.subtitle" defaultMessage="Bring everyone together with interactive games." />
@@ -50,3 +50,4 @@ export default function App() {
     </div>
   );
 }
+

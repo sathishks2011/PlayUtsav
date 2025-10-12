@@ -1,10 +1,10 @@
-# Family Fun App Wireframes
+# PlayUtsav Wireframes
 
 ## 1. Landing / Entry
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Family Fun                               [Theme] [Language]  │
+│ PlayUtsav                               [Theme] [Language]   │
 │ Bring everyone together with interactive games.              │
 │--------------------------------------------------------------│
 │ HOST A NEW GAME                    |   JOIN A GAME           │
@@ -70,7 +70,7 @@
 │ Teams: Lions 25 • Squad 20                                     │
 │---------------------------------------------------------------│
 │ Current Game: Family Feud — Round 2                           │
-│ Prompt: "Name something you bring on a picnic."              │
+│ Prompt: “Name something you bring on a picnic.”              │
 │ [ Reveal Answer 1 ] [ Reveal Answer 2 ] [ Strike ]            │
 │---------------------------------------------------------------│
 │ Action bar: [Start/Stop Timer] [Play Audio] [Adjust Score]     │

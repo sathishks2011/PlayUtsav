@@ -1,5 +1,5 @@
 {
-  "app.title": "Family Fun",
+  "app.title": "PlayUtsav",
   "app.subtitle": "Bring everyone together with interactive games.",
   "app.pwaLabel": "Progressive Web App",
   "app.loading": "Preparing your session…",
@@ -44,3 +44,4 @@
   "themeSwitcher.label": "Theme",
   "localeSwitcher.label": "Language"
 }
+

@@ -1,4 +1,4 @@
-# Family Fun Project Tracker
+# PlayUtsav Project Tracker
 
 ## Summary
 - Purpose: Build a multi-device family engagement platform with configurable games, team play, scoring, and marketplace-ready templates.

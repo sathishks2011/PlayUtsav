@@ -1,4 +1,4 @@
-Family Engagement App Monorepo
+PlayUtsav Monorepo
 
 Stack
 - Web PWA: Vite + React + vite-plugin-pwa

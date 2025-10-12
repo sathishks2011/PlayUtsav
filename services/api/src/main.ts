@@ -11,7 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
 
   const config = new DocumentBuilder()
-    .setTitle('Family Fun API')
+    .setTitle('PlayUtsav API')
     .setVersion('0.1.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);
