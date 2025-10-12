@@ -5,6 +5,7 @@
 - Current baseline (2025-10-11): Monorepo scaffold in place (React PWA, React TV build, shared packages, NestJS + Prisma API).
 
 ## Change Log
+- 2025-10-12 – Sprint 2 foundations: quiz round APIs, host/player quiz UI, dynamic theme studio, locale lab, and scoreboard updates.
 - 2025-10-11 – Stack confirmed (React PWA, Redux Toolkit, Tailwind, react-intl, Socket.IO client, NestJS + Prisma) and initial monorepo scaffold created.
 - 2025-10-10 – Requirements expanded to include multi-language support, vibrant theming, local-only mode, marketplace, analytics, music/sudoku/bingo games.
 - 2025-10-09 – Initial concept captured: family-friendly engagement app with team management, scoring, admin dashboard, template-driven games (quiz, family feud, logo ID, movie titles).
@@ -33,12 +34,12 @@
 - **Performance on low-end devices** – especially TVs with limited CPU/memory.
 
 ## TODO / Backlog Snapshot
-- Wire Socket.IO gateway and client hooks for sessions, teams, and scoring.
-- Flesh out Prisma models (teams, rounds, themes, locales, plugins) and connect controllers.
-- Implement Redux slices for sessions, teams, themes, and locale management.
-- Add theme switcher UI and dynamic CSS variable loader.
-- Integrate react-intl locale loader with fallback strategy; add secondary locale pack.
-- Build host/player screens (lobby, game board, scoreboard) for web and TV variants.
+- Wire Socket.IO gateway and client hooks for sessions, teams, and scoring. ✅
+- Flesh out Prisma models (teams, rounds, themes, locales, plugins) and connect controllers. ▶ In progress (quiz state in-memory; DB round model TBD).
+- Implement Redux slices for sessions, teams, themes, and locale management. ✅
+- Add theme switcher UI and dynamic CSS variable loader. ✅
+- Integrate react-intl locale loader with fallback strategy; add secondary locale pack. ✅
+- Build host/player screens (lobby, game board, scoreboard) for web and TV variants. ✅ Sprint 2 expands with quiz panels & scoreboards.
 - Scaffold admin dashboard (template import/export, theme editor).
 - Set up automated testing (Jest/unit, Playwright E2E, k6 perf harness).
 - Define marketplace package schema and signing utility.
@@ -72,4 +73,3 @@
 - Update this document at the start/end of each sprint.
 - Record major decisions and requirement changes in the Change Log section with dates.
 - Cross-link tasks to issue tracker (e.g., GitHub) when available.
-

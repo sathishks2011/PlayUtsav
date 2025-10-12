@@ -14,6 +14,11 @@ export const themeOptions: ThemeOption[] = [
 
 type ThemeState = {
   current: string;
+  custom?: {
+    primary: string;
+    accent: string;
+    background: string;
+  };
 };
 
 const initialState: ThemeState = {
@@ -26,9 +31,16 @@ const themeSlice = createSlice({
   reducers: {
     setTheme(state, action: PayloadAction<string>) {
       state.current = action.payload;
+      state.custom = undefined;
+    },
+    setCustomTheme(state, action: PayloadAction<{ primary: string; accent: string; background: string }>) {
+      state.custom = action.payload;
+    },
+    resetTheme() {
+      return { ...initialState };
     },
   },
 });
 
-export const { setTheme } = themeSlice.actions;
+export const { setTheme, setCustomTheme, resetTheme } = themeSlice.actions;
 export default themeSlice.reducer;

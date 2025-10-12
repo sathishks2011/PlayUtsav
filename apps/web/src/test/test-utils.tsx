@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from 'react';
 import sessionReducer from '../store/slices/sessionSlice';
 import themeReducer from '../store/slices/themeSlice';
 import localeReducer from '../store/slices/localeSlice';
+import quizReducer from '../store/slices/quizSlice';
 import type { RootState } from '../store/store';
 
 export function setupStore(preloadedState?: PreloadedState<RootState>) {
@@ -14,6 +15,7 @@ export function setupStore(preloadedState?: PreloadedState<RootState>) {
       session: sessionReducer,
       theme: themeReducer,
       locale: localeReducer,
+      quiz: quizReducer,
     },
     preloadedState,
   });

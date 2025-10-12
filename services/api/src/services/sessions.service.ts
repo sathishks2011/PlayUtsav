@@ -85,6 +85,33 @@ export class SessionsService {
     return this.prisma.session.update({ where: { id: sessionId }, data: { status } });
   }
 
+  async adjustScore(sessionId: string, teamId: string, delta: number, reason?: string) {
+    const latest = await this.prisma.score.findFirst({
+      where: { sessionId, teamId },
+      orderBy: { recordedAt: 'desc' },
+    });
+    const value = (latest?.value ?? 0) + delta;
+    return this.prisma.score.create({
+      data: {
+        sessionId,
+        teamId,
+        delta,
+        value,
+        reason,
+      },
+    });
+  }
+
+  async findParticipant(participantId: string) {
+    return this.prisma.participant.findUnique({ where: { id: participantId } });
+  }
+
+  async ensureSession(sessionId: string) {
+    const session = await this.prisma.session.findUnique({ where: { id: sessionId } });
+    if (!session) throw new NotFoundException('Session not found');
+    return session;
+  }
+
   private async generateUniqueCode() {
     const makeCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
     let code = makeCode();

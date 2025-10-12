@@ -45,6 +45,10 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.server.to(this.room(sessionId)).emit('session:update', snapshot);
   }
 
+  async emitQuizUpdate(sessionId: string, state: unknown) {
+    this.server.to(this.room(sessionId)).emit('quiz:update', state);
+  }
+
   private room(sessionId: string) {
     return `session:${sessionId}`;
   }

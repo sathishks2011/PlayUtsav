@@ -30,12 +30,23 @@ const session: Session = {
       ],
     },
   ],
-  scores: [],
+  scores: [
+    {
+      id: 'score-1',
+      sessionId: 'session-1',
+      teamId: 'team-1',
+      value: 10,
+      delta: 10,
+      reason: 'quiz-award',
+      recordedBy: null,
+      recordedAt: new Date().toISOString(),
+    },
+  ],
 };
 
 describe('HostLobby screen', () => {
   it('renders session details, participants, and teams', () => {
-    const preloadedState: RootState = {
+    const preloadedState = {
       session: {
         current: session,
         role: 'HOST',
@@ -43,9 +54,10 @@ describe('HostLobby screen', () => {
         participantId: undefined,
         error: undefined,
       },
-      theme: { current: 'default' },
+      theme: { current: 'default', custom: undefined },
       locale: { current: 'en' },
-    };
+      quiz: { current: null, loading: false },
+    } as RootState;
 
     const { getByText } = renderWithProviders(
       <IntlProvider locale="en" messages={enMessages}>
@@ -58,6 +70,7 @@ describe('HostLobby screen', () => {
 
     expect(getByText(/Session code/i)).toHaveTextContent('H7QX');
     expect(getByText(/Lobby participants/i)).toBeInTheDocument();
+    expect(getByText(/Scoreboard/i)).toBeInTheDocument();
     expect(getByText('Sam')).toBeInTheDocument();
     expect(getByText('Lightning Lions')).toBeInTheDocument();
   });

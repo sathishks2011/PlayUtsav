@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -8,10 +9,15 @@
       :root {
         color-scheme: dark;
         --bg: #0f172a;
-        --panel: rgba(15, 23, 42, 0.75);
+        --panel: rgba(15, 23, 42, 0.78);
         --accent: #60a5fa;
+        --accent-soft: rgba(96, 165, 250, 0.18);
+        --accent-strong: rgba(96, 165, 250, 0.55);
+        --accent-secondary: #22d3ee;
         --fg: #e2e8f0;
         --border: rgba(226, 232, 240, 0.2);
+        --success: #34d399;
+        --danger: #f87171;
       }
       * {
         box-sizing: border-box;
@@ -25,22 +31,30 @@
         display: flex;
       }
       nav {
-        width: 240px;
+        width: 260px;
         border-right: 1px solid var(--border);
-        padding: 24px 16px;
+        padding: 28px 18px;
         backdrop-filter: blur(16px);
         background: rgba(15, 23, 42, 0.65);
         position: sticky;
         top: 0;
         height: 100vh;
+        overflow-y: auto;
       }
       nav h1 {
         margin: 0 0 24px;
-        font-size: 1.25rem;
+        font-size: 1.35rem;
+      }
+      nav h2 {
+        margin: 24px 0 12px;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.6;
       }
       nav button {
         width: 100%;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         padding: 12px 16px;
         border-radius: 12px;
         background: transparent;
@@ -53,19 +67,19 @@
       }
       nav button:hover,
       nav button.active {
-        background: rgba(96, 165, 250, 0.15);
-        border-color: rgba(96, 165, 250, 0.6);
+        background: rgba(96, 165, 250, 0.18);
+        border-color: rgba(96, 165, 250, 0.55);
       }
       main {
         flex: 1;
-        padding: 32px;
+        padding: 36px;
         display: flex;
         justify-content: center;
         align-items: flex-start;
       }
       .screen {
         display: none;
-        width: min(960px, 100%);
+        width: min(1040px, 100%);
       }
       .screen.active {
         display: block;
@@ -74,41 +88,42 @@
       .panel {
         background: var(--panel);
         border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 24px 28px;
-        margin-bottom: 24px;
-        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.35);
+        border-radius: 22px;
+        padding: 26px 30px;
+        margin-bottom: 26px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.42);
       }
       .panel h2 {
-        margin: 0 0 12px;
-        font-size: 1.5rem;
+        margin: 0 0 14px;
+        font-size: 1.55rem;
       }
       .panel p {
-        margin: 0 0 16px;
+        margin: 0 0 18px;
         line-height: 1.6;
         opacity: 0.85;
       }
       .grid {
         display: grid;
-        gap: 16px;
+        gap: 18px;
       }
       .grid.columns-2 {
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       }
       .card {
-        border: 1px dashed rgba(148, 163, 184, 0.4);
-        border-radius: 16px;
-        padding: 16px;
+        border: 1px dashed rgba(148, 163, 184, 0.38);
+        border-radius: 18px;
+        padding: 18px 20px;
+        background: rgba(15, 23, 42, 0.45);
       }
       .badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 10px;
+        padding: 6px 11px;
         border-radius: 999px;
-        background: rgba(96, 165, 250, 0.2);
+        background: rgba(96, 165, 250, 0.22);
         color: #bfdbfe;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
@@ -119,25 +134,141 @@
       }
       ul li {
         padding: 8px 0;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
       }
       .cta-row {
         display: flex;
         flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .pill {
+        padding: 9px 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        font-size: 0.85rem;
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+      .scoreboard {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 12px;
         margin-top: 16px;
       }
-      .pill {
-        padding: 8px 14px;
+      .score-card {
+        border-radius: 16px;
+        padding: 14px 16px;
+        background: rgba(96, 165, 250, 0.14);
+        border: 1px solid rgba(96, 165, 250, 0.32);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .score-card h4 {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .score-card span {
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      .timer-bar {
+        position: relative;
+        height: 14px;
+        background: rgba(148, 163, 184, 0.25);
         border-radius: 999px;
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        font-size: 0.85rem;
+        overflow: hidden;
+        margin-top: 12px;
+      }
+      .timer-bar span {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-secondary) 100%);
+        transform-origin: left;
+        transform: scaleX(1);
+        transition: transform 0.3s linear;
+      }
+      .answers-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .answers-list li.revealed {
+        color: #facc15;
+        font-weight: 600;
+      }
+      .answers-list button {
+        border: none;
+        background: rgba(250, 204, 21, 0.18);
+        color: #fde68a;
+        padding: 6px 10px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .quiz-options label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        margin-bottom: 10px;
+        background: rgba(148, 163, 184, 0.14);
+        cursor: pointer;
+      }
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.18);
+        font-size: 0.8rem;
+      }
+      .status-chip.success {
+        background: rgba(52, 211, 153, 0.22);
+        color: #bbf7d0;
+      }
+      .status-chip.danger {
+        background: rgba(248, 113, 113, 0.22);
+        color: #fecaca;
+      }
+      .theme-preview {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+      .preview-card {
+        border-radius: 16px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+      }
+      .locale-output {
+        margin-top: 18px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(15, 23, 42, 0.5);
+        padding: 18px;
+        min-height: 120px;
+      }
+      select,
+      input[type="text"],
+      input[type="color"] {
+        color: inherit;
+      }
+      button {
+        color: inherit;
       }
       @keyframes fade {
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      @media (max-width: 900px) {
+      @media (max-width: 960px) {
         body {
           flex-direction: column;
         }
@@ -150,7 +281,7 @@
           gap: 12px;
         }
         nav button {
-          flex: 1 0 140px;
+          flex: 1 0 160px;
         }
         main {
           padding: 24px;
@@ -161,13 +292,20 @@
   <body>
     <nav>
       <h1>PlayUtsav Prototype</h1>
+      <h2>Sprint 1 Flow</h2>
       <button data-screen="landing" class="active">Landing / Entry</button>
       <button data-screen="host-lobby">Host Lobby</button>
       <button data-screen="player-lobby">Player Lobby</button>
       <button data-screen="host-control">Host Game Control</button>
+      <h2>Sprint 2 Enhancements</h2>
+      <button data-screen="host-quiz">Host Quiz Round</button>
+      <button data-screen="player-quiz">Player Quiz Round</button>
+      <button data-screen="theme-studio">Theme Studio</button>
+      <button data-screen="locale-lab">Locale Lab</button>
+      <h2>Operations</h2>
       <button data-screen="admin">Admin Dashboard</button>
       <div style="margin-top:32px;font-size:0.8rem;opacity:0.65;line-height:1.5;">
-        Click the buttons to switch between screens. This is a lightweight wireflow reference.
+        Use the buttons or in-screen CTAs to walk through the MVP. Sprint 2 adds quiz gameplay, live theming, and locale switching previews.
       </div>
     </nav>
 
@@ -176,61 +314,71 @@
         <div class="panel">
           <span class="badge">Entry</span>
           <h2>Landing / Entry</h2>
-          <p>Choose to host a new session or join with a four-letter code. Theme and language controls are always visible.</p>
+          <p>Choose a path to see the PlayUtsav flow. Forms simulate the behaviour of the live PWA.</p>
           <div class="grid columns-2">
-            <div class="card">
+            <form class="card" id="host-form">
               <h3>Host a new game</h3>
-              <ul>
-                <li>Your name input</li>
-                <li>Max players dropdown</li>
-                <li>Optional language selection</li>
-                <li><strong>Create session</strong> CTA generates code</li>
-              </ul>
-            </div>
-            <div class="card">
+              <label style="display:block; margin-bottom:12px; font-size:0.9rem;">
+                Host name
+                <input type="text" name="hostName" value="Ava" style="margin-top:6px; padding:8px 10px; width:100%; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,0.55);" />
+              </label>
+              <label style="display:block; margin-bottom:12px; font-size:0.9rem;">
+                Max players
+                <select name="maxPlayers" style="margin-top:6px; padding:8px 10px; width:100%; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,0.55);">
+                  <option>4</option>
+                  <option>6</option>
+                  <option>8</option>
+                </select>
+              </label>
+              <button type="submit" style="width:100%; padding:12px 0; border-radius:12px; border:none; background:var(--accent-soft); color:#e2e8f0; font-weight:600; cursor:pointer;">Create session</button>
+            </form>
+            <form class="card" id="player-form">
               <h3>Join a game</h3>
-              <ul>
-                <li>Game code input (4 characters)</li>
-                <li>Player nickname</li>
-                <li>Error state messaging</li>
-                <li><strong>Join session</strong> CTA transitions to player lobby</li>
-              </ul>
-            </div>
+              <label style="display:block; margin-bottom:12px; font-size:0.9rem;">
+                Game code
+                <input type="text" name="code" value="H7QX" maxlength="4" style="margin-top:6px; padding:8px 10px; width:100%; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,0.55); text-transform:uppercase;" />
+              </label>
+              <label style="display:block; margin-bottom:12px; font-size:0.9rem;">
+                Your nickname
+                <input type="text" name="playerName" value="Sam" style="margin-top:6px; padding:8px 10px; width:100%; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,0.55);" />
+              </label>
+              <button type="submit" style="width:100%; padding:12px 0; border-radius:12px; border:none; background:rgba(134,239,172,0.32); color:#e2f9ea; font-weight:600; cursor:pointer;">Join lobby</button>
+            </form>
           </div>
         </div>
       </section>
-
       <section class="screen" id="host-lobby">
         <div class="panel">
           <span class="badge">Host View</span>
           <h2>Host Lobby</h2>
-          <p>Monitor who has joined, organize teams, and prepare to start rounds.</p>
+          <p>Monitor real-time joins and shape teams before starting games.</p>
           <div class="grid columns-2">
             <div class="card">
               <h3>Session Overview</h3>
               <ul>
-                <li>Session code display + copy button</li>
-                <li>Joined counter (e.g., 2 / 6 players)</li>
-                <li>Share instructions / QR entry point</li>
+                <li>Session code: <strong id="session-code">H7QX</strong> <span class="pill">Copy</span></li>
+                <li>Joined: <strong id="joined-count">2 / 6</strong></li>
+                <li>Share instructions + QR entry point</li>
               </ul>
             </div>
             <div class="card">
               <h3>Create Team</h3>
-              <ul>
-                <li>Team name input</li>
-                <li>Color picker</li>
-                <li><strong>Add team</strong> button updates list</li>
-              </ul>
+              <label style="display:block; margin-bottom:8px; font-size:0.9rem;">Team name<input type="text" value="Lightning Lions" style="margin-top:6px; padding:8px 10px; width:100%; border-radius:8px; border:1px solid var(--border); background:rgba(15,23,42,0.55);" /></label>
+              <label style="display:block; margin-bottom:8px; font-size:0.9rem;">Color<input type="color" value="#ffcc00" style="margin-top:6px; width:100%; height:36px; border-radius:8px; border:1px solid var(--border); padding:4px; background:rgba(15,23,42,0.55);" /></label>
+              <button type="button" style="width:100%; padding:10px 0; border-radius:10px; border:1px dashed var(--accent-strong); background:var(--accent-soft); color:#bfdbfe; cursor:pointer;">Add team (preview)</button>
             </div>
           </div>
           <div class="panel" style="margin-top:16px; background: rgba(15, 23, 42, 0.55);">
             <h3>Current Teams</h3>
-            <p>Each card shows the team color, member list, and controls for future functionality (reassign, delete, etc.).</p>
+            <ul>
+              <li>Lightning Lions ñ Ava, Sam</li>
+              <li>Stardust Squad ñ (empty)</li>
+            </ul>
           </div>
           <div class="cta-row">
-            <span class="pill">Start Game</span>
-            <span class="pill">Auto-assign teams</span>
-            <span class="pill">Export QR</span>
+            <button class="pill" data-flow="start-game">Open Game Console</button>
+            <button class="pill" data-flow="start-quiz">Jump to Quiz Round</button>
+            <button class="pill" data-flow="back-home">Back to Landing</button>
           </div>
         </div>
       </section>
@@ -239,24 +387,28 @@
         <div class="panel">
           <span class="badge">Player View</span>
           <h2>Player Lobby</h2>
-          <p>Players confirm they are in the right session, view other participants, and wait for the host to start.</p>
+          <p>Players confirm theyíre in the right lobby, see who's joined, and wait for the host to start.</p>
           <div class="grid columns-2">
             <div class="card">
               <h3>Welcome block</h3>
               <ul>
-                <li>Personal greeting using nickname</li>
-                <li>Session code reminder</li>
-                <li>Status indicator (‚ÄúWaiting for host‚Äù)</li>
+                <li>Welcome, <strong id="player-name">Sam</strong>!</li>
+                <li>Session code reminder: <strong>H7QX</strong></li>
+                <li>Status indicator: Waiting for hostÖ</li>
               </ul>
             </div>
             <div class="card">
               <h3>Players & Teams</h3>
               <ul>
-                <li>Alphabetical player list with host flag</li>
-                <li>Team cards appear once assigned</li>
-                <li>Responsive layout for mobile/TV</li>
+                <li>Ava (Host)</li>
+                <li>Sam</li>
+                <li>Stardust Squad awaiting assignments</li>
               </ul>
             </div>
+          </div>
+          <div class="cta-row">
+            <button class="pill" data-flow="view-player-quiz">Preview Quiz Round</button>
+            <button class="pill" data-flow="back-home">Leave Lobby</button>
           </div>
         </div>
       </section>
@@ -265,52 +417,189 @@
         <div class="panel">
           <span class="badge">During Game</span>
           <h2>Host Game Control</h2>
-          <p>Primary control center for running rounds, revealing content, and adjusting scores.</p>
-          <div class="card">
+          <p>Central console for running rounds, revealing content, and adjusting scores.</p>
+          <div class="scoreboard" id="scoreboard-overview">
+            <div class="score-card">
+              <h4>Lightning Lions</h4>
+              <span id="score-lions">25</span>
+              <small class="status-chip">Streak: 1</small>
+            </div>
+            <div class="score-card">
+              <h4>Stardust Squad</h4>
+              <span id="score-squad">20</span>
+              <small class="status-chip">Next pick</small>
+            </div>
+          </div>
+          <div class="card" style="margin-top:18px;">
             <h3>Round board</h3>
             <ul>
-              <li>Current template (e.g., Family Feud ‚Äì Round 2)</li>
-              <li>Prompt area for questions/clues/media</li>
-              <li>Controls: reveal, strikes, timer, audio playback</li>
+              <li>Current template: Chill Ice-breaker</li>
+              <li>Action bar: reveal, timer, multimedia controls</li>
+              <li>Use CTA below to jump into Sprint 2 quiz flow</li>
             </ul>
           </div>
-          <div class="grid columns-2" style="margin-top:18px;">
-            <div class="card">
-              <h3>Score & Teams</h3>
-              <ul>
-                <li>Live scoreboard per team</li>
-                <li>Adjust score / penalties / bonus options</li>
-                <li>Quick swap for team order or seating</li>
-              </ul>
+          <div class="cta-row">
+            <button class="pill" data-flow="start-quiz">Launch Quiz Round</button>
+            <button class="pill" data-flow="start-theme">Open Theme Studio</button>
+            <button class="pill" data-flow="next-round">Simulate next round</button>
+            <button class="pill" data-flow="back-home">End Session</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="host-quiz">
+        <div class="panel">
+          <span class="badge">Sprint 2</span>
+          <h2>Host Quiz Round</h2>
+          <p>Full quiz control: timers, answer reveals, live score adjustments.</p>
+          <div class="card" style="margin-bottom:18px;">
+            <h3>Question #3 ∑ Holiday Trivia</h3>
+            <p style="font-size:1.05rem; font-weight:500;">Which city hosts the world's largest New Yearís Eve fireworks display?</p>
+            <div class="quiz-options" id="host-quiz-options">
+              <label><input type="radio" name="host-answer" value="Sydney" checked /> Sydney</label>
+              <label><input type="radio" name="host-answer" value="Dubai" /> Dubai</label>
+              <label><input type="radio" name="host-answer" value="Rio" /> Rio de Janeiro</label>
+              <label><input type="radio" name="host-answer" value="Singapore" /> Singapore</label>
             </div>
-            <div class="card">
-              <h3>Round queue</h3>
-              <ul>
-                <li>Upcoming templates (Quiz ‚Üí Logo ‚Üí Music)</li>
-                <li>Reorder via drag and drop (future)</li>
-                <li>Indicators for media assets readiness</li>
-              </ul>
+            <div class="timer-bar"><span id="host-timer-bar"></span></div>
+            <div class="cta-row" style="margin-top:16px;">
+              <button class="pill" id="start-host-timer">Start 30s Timer</button>
+              <button class="pill" id="reveal-host-answer">Reveal Correct Answer</button>
+              <button class="pill" id="award-lions">Award Lions +10</button>
+              <button class="pill" id="award-squad">Award Squad +10</button>
             </div>
+            <div class="status-chip" id="host-quiz-status" style="margin-top:14px;">Waiting to startÖ</div>
+          </div>
+          <div class="panel" style="background:rgba(15,23,42,0.55);">
+            <h3>Answer Reveal</h3>
+            <ul class="answers-list" id="host-answer-list">
+              <li data-answer="Sydney">Sydney <button data-answer="Sydney">Reveal</button></li>
+              <li data-answer="Dubai">Dubai <button data-answer="Dubai">Reveal</button></li>
+              <li data-answer="Rio">Rio de Janeiro <button data-answer="Rio">Reveal</button></li>
+              <li data-answer="Singapore">Singapore <button data-answer="Singapore">Reveal</button></li>
+            </ul>
           </div>
           <div class="cta-row">
-            <span class="pill">Next Round</span>
-            <span class="pill">Pause Timer</span>
-            <span class="pill">Open Scoring Log</span>
+            <button class="pill" data-flow="player-quiz">View Player Perspective</button>
+            <button class="pill" data-flow="start-theme">Theme Studio</button>
+          </div>
+        </div>
+      </section>
+      <section class="screen" id="player-quiz">
+        <div class="panel">
+          <span class="badge">Sprint 2</span>
+          <h2>Player Quiz Round</h2>
+          <p>Players get a compact view with options, timer highlight, and instant feedback.</p>
+          <form class="card" id="player-quiz-form">
+            <h3>Question #3 ∑ Holiday Trivia</h3>
+            <p style="font-size:1.05rem; font-weight:500;">Which city hosts the world's largest New Yearís Eve fireworks display?</p>
+            <div class="quiz-options">
+              <label><input type="radio" name="player-answer" value="Sydney" checked /> Sydney</label>
+              <label><input type="radio" name="player-answer" value="Dubai" /> Dubai</label>
+              <label><input type="radio" name="player-answer" value="Rio" /> Rio de Janeiro</label>
+              <label><input type="radio" name="player-answer" value="Singapore" /> Singapore</label>
+            </div>
+            <button type="submit" style="margin-top:14px; width:100%; padding:12px 0; border-radius:12px; border:none; background:var(--accent-strong); color:#e2e8f0; font-weight:600; cursor:pointer;">Submit answer</button>
+          </form>
+          <div class="status-chip" id="player-feedback" style="margin-top:16px;">Select an answer above.</div>
+          <div class="cta-row">
+            <button class="pill" data-flow="host-quiz">Back to Host View</button>
+            <button class="pill" data-flow="back-home">Exit to Landing</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="theme-studio">
+        <div class="panel">
+          <span class="badge">Sprint 2</span>
+          <h2>Theme Studio</h2>
+          <p>Live theming tools from Sprint 2. Adjust palettes and see the UI react instantly.</p>
+          <div class="grid columns-2">
+            <div class="card">
+              <h3>Theme presets</h3>
+              <select id="theme-preset" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:rgba(15,23,42,0.55); color:inherit;">
+                <option value="aurora">Aurora (Default)</option>
+                <option value="vibrant">Vibrant Pop</option>
+                <option value="sunset">Sunset Glow</option>
+                <option value="forest">Forest Trail</option>
+              </select>
+              <div style="margin-top:16px; display:grid; gap:12px;">
+                <label style="font-size:0.9rem;">
+                  Primary color
+                  <input type="color" id="custom-primary" value="#60a5fa" style="margin-top:6px; width:100%; height:38px; border-radius:8px; border:1px solid var(--border);" />
+                </label>
+                <label style="font-size:0.9rem;">
+                  Accent color
+                  <input type="color" id="custom-accent" value="#22d3ee" style="margin-top:6px; width:100%; height:38px; border-radius:8px; border:1px solid var(--border);" />
+                </label>
+                <label style="font-size:0.9rem;">
+                  Background gradient start
+                  <input type="color" id="custom-bg" value="#0f172a" style="margin-top:6px; width:100%; height:38px; border-radius:8px; border:1px solid var(--border);" />
+                </label>
+              </div>
+              <button class="pill" id="reset-theme" style="margin-top:16px;">Reset to default</button>
+            </div>
+            <div class="card">
+              <h3>Live preview</h3>
+              <p style="opacity:0.7;">This mirrors the actual theming system in the web client.</p>
+              <div class="theme-preview">
+                <div class="preview-card">
+                  <strong>Header</strong>
+                  <p id="preview-title" style="margin:8px 0 0;">PlayUtsav ∑ Lightning Lions vs Stardust Squad</p>
+                  <small>Tap buttons below to see accent usage.</small>
+                  <div class="cta-row" style="margin-top:12px;">
+                    <button class="pill" id="preview-theme-button">Primary CTA</button>
+                    <button class="pill" id="preview-accent-button">Secondary CTA</button>
+                  </div>
+                </div>
+                <div class="preview-card">
+                  <strong>Score snippet</strong>
+                  <div class="scoreboard" style="margin-top:12px;">
+                    <div class="score-card"><h4>Lions</h4><span id="preview-score-lions">35</span></div>
+                    <div class="score-card"><h4>Squad</h4><span id="preview-score-squad">30</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="locale-lab">
+        <div class="panel">
+          <span class="badge">Sprint 2</span>
+          <h2>Locale Lab</h2>
+          <p>Locale switcher preview with English and Spanish copy, reflecting the i18n work from Sprint 2.</p>
+          <div class="card">
+            <h3>Select locale</h3>
+            <div class="cta-row" style="margin-top:10px;">
+              <button class="pill" data-locale="en">English</button>
+              <button class="pill" data-locale="es">EspaÒol</button>
+            </div>
+            <div class="locale-output" id="locale-output">
+              <h4>PlayUtsav</h4>
+              <p>Bring everyone together with interactive games.</p>
+              <ul>
+                <li>Host a new game</li>
+                <li>Join session</li>
+                <li>Waiting for playersÖ</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="screen" id="admin">
         <div class="panel">
-          <span class="badge">Admin</span>
+          <span class="badge">Operations</span>
           <h2>Admin Dashboard</h2>
           <p>Manage templates, install marketplace packs, and review analytics.</p>
           <div class="card">
             <h3>Template Library</h3>
             <ul>
               <li>Upload/import signed packages (.famgame.tgz)</li>
-              <li>List of installed templates with preview/publish controls</li>
-              <li>JSON schema validation feedback area</li>
+              <li>Preview and publish curated templates</li>
+              <li>JSON schema validation feedback</li>
             </ul>
           </div>
           <div class="grid columns-2" style="margin-top:18px;">
@@ -319,7 +608,7 @@
               <ul>
                 <li>Filters: Local / Private / Community</li>
                 <li>Install / uninstall actions</li>
-                <li>Licensing and signature status indicators</li>
+                <li>Licensing and signature indicators</li>
               </ul>
             </div>
             <div class="card">
@@ -327,17 +616,28 @@
               <ul>
                 <li>Top games played</li>
                 <li>Average session length</li>
-                <li>Engagement metrics (players/session, retention)</li>
+                <li>Engagement metrics</li>
               </ul>
             </div>
           </div>
         </div>
       </section>
     </main>
-
     <script>
       const buttons = Array.from(document.querySelectorAll('nav button'));
       const screens = Array.from(document.querySelectorAll('.screen'));
+
+      const scoreboard = {
+        lions: 25,
+        squad: 20,
+      };
+
+      function updateScoreboard() {
+        const lionsEls = document.querySelectorAll('#score-lions, #preview-score-lions');
+        const squadEls = document.querySelectorAll('#score-squad, #preview-score-squad');
+        lionsEls.forEach((el) => (el.textContent = scoreboard.lions));
+        squadEls.forEach((el) => (el.textContent = scoreboard.squad));
+      }
 
       function activate(screenId) {
         screens.forEach((section) => {
@@ -352,6 +652,207 @@
       buttons.forEach((btn) => {
         btn.addEventListener('click', () => activate(btn.dataset.screen));
       });
+
+      document.getElementById('host-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        activate('host-lobby');
+      });
+
+      document.getElementById('player-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        activate('player-lobby');
+      });
+
+      document.querySelectorAll('[data-flow="back-home"]').forEach((el) => {
+        el.addEventListener('click', () => activate('landing'));
+      });
+
+      document.querySelector('[data-flow="start-game"]').addEventListener('click', () => activate('host-control'));
+      document.querySelectorAll('[data-flow="start-quiz"]').forEach((el) => el.addEventListener('click', () => activate('host-quiz')));
+      document.querySelector('[data-flow="start-theme"]').addEventListener('click', () => activate('theme-studio'));
+      document.querySelector('[data-flow="view-player-quiz"]').addEventListener('click', () => activate('player-quiz'));
+      document.querySelector('[data-flow="player-quiz"]').addEventListener('click', () => activate('player-quiz'));
+
+      const nextRoundBtn = document.querySelector('[data-flow="next-round"]');
+      nextRoundBtn.addEventListener('click', () => {
+        const card = document.querySelector('#host-control .card ul');
+        if (card && !card.dataset.updated) {
+          card.dataset.updated = 'true';
+          card.innerHTML = `
+            <li>Current template: Quickfire Quiz</li>
+            <li>Next: Logo Blitz ? Music Match ? Sudoku Sprint</li>
+            <li>Timer primed ∑ Score log saved</li>
+          `;
+          nextRoundBtn.textContent = 'Queue updated';
+          nextRoundBtn.style.opacity = '0.7';
+        }
+      });
+
+      const timerBar = document.getElementById('host-timer-bar');
+      const hostStatus = document.getElementById('host-quiz-status');
+      let timerActive = false;
+      let timerInterval;
+
+      document.getElementById('start-host-timer').addEventListener('click', () => {
+        if (timerActive) return;
+        timerActive = true;
+        hostStatus.textContent = 'Timer running (30s)Ö';
+        hostStatus.className = 'status-chip';
+        let remaining = 30;
+        timerBar.style.transform = 'scaleX(1)';
+        timerInterval = setInterval(() => {
+          remaining -= 1;
+          const scale = Math.max(remaining / 30, 0);
+          timerBar.style.transform = `scaleX(${scale})`;
+          if (remaining <= 0) {
+            clearInterval(timerInterval);
+            timerActive = false;
+            hostStatus.textContent = 'Time is up!';
+            hostStatus.className = 'status-chip danger';
+          }
+        }, 1000);
+      });
+
+      document.getElementById('reveal-host-answer').addEventListener('click', () => {
+        const correct = 'Dubai';
+        const listItem = document.querySelector(`#host-answer-list li[data-answer="${correct}"]`);
+        if (listItem) {
+          listItem.classList.add('revealed');
+          listItem.querySelector('button').textContent = 'Correct';
+          hostStatus.textContent = 'Correct answer: Dubai';
+          hostStatus.className = 'status-chip success';
+        }
+      });
+
+      document.querySelectorAll('#host-answer-list button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          btn.parentElement.classList.toggle('revealed');
+        });
+      });
+
+      document.getElementById('award-lions').addEventListener('click', () => {
+        scoreboard.lions += 10;
+        updateScoreboard();
+        hostStatus.textContent = 'Lightning Lions +10 points!';
+        hostStatus.className = 'status-chip success';
+      });
+
+      document.getElementById('award-squad').addEventListener('click', () => {
+        scoreboard.squad += 10;
+        updateScoreboard();
+        hostStatus.textContent = 'Stardust Squad +10 points!';
+        hostStatus.className = 'status-chip success';
+      });
+
+      document.getElementById('player-quiz-form').addEventListener('submit', (event) => {
+        event.preventDefault();
+        const answer = new FormData(event.target).get('player-answer');
+        const feedback = document.getElementById('player-feedback');
+        if (answer === 'Dubai') {
+          feedback.textContent = '? Correct! Bonus incomingÖ';
+          feedback.className = 'status-chip success';
+        } else {
+          feedback.textContent = 'Not quite. The host will reveal the answer.';
+          feedback.className = 'status-chip danger';
+        }
+      });
+
+      const rootStyle = document.documentElement.style;
+      const themePreset = document.getElementById('theme-preset');
+      const primaryPicker = document.getElementById('custom-primary');
+      const accentPicker = document.getElementById('custom-accent');
+      const bgPicker = document.getElementById('custom-bg');
+
+      const presetMap = {
+        aurora: {
+          primary: '#60a5fa',
+          accent: '#22d3ee',
+          background: '#0f172a',
+        },
+        vibrant: {
+          primary: '#f97316',
+          accent: '#22d3ee',
+          background: '#0c0a1a',
+        },
+        sunset: {
+          primary: '#ef4444',
+          accent: '#facc15',
+          background: '#1a0b18',
+        },
+        forest: {
+          primary: '#22c55e',
+          accent: '#86efac',
+          background: '#05140f',
+        },
+      };
+
+      function applyTheme({ primary, accent, background }) {
+        rootStyle.setProperty('--accent', primary);
+        rootStyle.setProperty('--accent-soft', `${primary}33`);
+        rootStyle.setProperty('--accent-strong', `${primary}88`);
+        rootStyle.setProperty('--accent-secondary', accent);
+        document.body.style.background = `linear-gradient(135deg, ${background} 0%, #1e293b 100%)`;
+        primaryPicker.value = primary;
+        accentPicker.value = accent;
+        bgPicker.value = background;
+      }
+
+      themePreset.addEventListener('change', () => {
+        applyTheme(presetMap[themePreset.value]);
+      });
+
+      [primaryPicker, accentPicker, bgPicker].forEach((input) => {
+        input.addEventListener('input', () => {
+          applyTheme({
+            primary: primaryPicker.value,
+            accent: accentPicker.value,
+            background: bgPicker.value,
+          });
+        });
+      });
+
+      document.getElementById('reset-theme').addEventListener('click', () => {
+        themePreset.value = 'aurora';
+        applyTheme(presetMap.aurora);
+      });
+
+      document.getElementById('preview-theme-button').addEventListener('click', () => {
+        scoreboard.lions += 5;
+        updateScoreboard();
+      });
+
+      document.getElementById('preview-accent-button').addEventListener('click', () => {
+        scoreboard.squad += 5;
+        updateScoreboard();
+      });
+
+      const localeData = {
+        en: {
+          title: 'PlayUtsav',
+          subtitle: 'Bring everyone together with interactive games.',
+          items: ['Host a new game', 'Join session', 'Waiting for playersÖ'],
+        },
+        es: {
+          title: 'PlayUtsav',
+          subtitle: 'Re˙ne a todos con juegos interactivos.',
+          items: ['Organiza un nuevo juego', 'Unirse a la sesiÛn', 'Esperando jugadoresÖ'],
+        },
+      };
+
+      document.querySelectorAll('[data-locale]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const code = btn.dataset.locale;
+          const output = document.getElementById('locale-output');
+          const data = localeData[code];
+          output.innerHTML = `
+            <h4>${data.title}</h4>
+            <p>${data.subtitle}</p>
+            <ul>${data.items.map((item) => `<li>${item}</li>`).join('')}</ul>
+          `;
+        });
+      });
+
+      updateScoreboard();
 
       const initial = window.location.hash?.replace('#', '') || 'landing';
       if (screens.some((section) => section.id === initial)) {

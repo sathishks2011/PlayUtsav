@@ -5,6 +5,7 @@ import { PlayerLobby } from './screens/PlayerLobby';
 import { useSessionSync } from './hooks/useSessionSync';
 import { useThemeSync } from './hooks/useThemeSync';
 import { useLocaleSync } from './hooks/useLocaleSync';
+import { useQuizSync } from './hooks/useQuizSync';
 import { useAppSelector } from './store/hooks';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
 import { LocaleSwitcher } from './components/LocaleSwitcher';
@@ -16,6 +17,7 @@ export default function App() {
   useSessionSync();
   useThemeSync();
   useLocaleSync();
+  useQuizSync();
 
   return (
     <div className="min-h-screen text-[var(--fg)]">

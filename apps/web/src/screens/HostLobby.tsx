@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import type { Team } from '@pkg/core';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { addTeamThunk } from '../store/slices/sessionSlice';
-import type { Team } from '@pkg/core';
+import { HostQuizPanel } from '../components/HostQuizPanel';
+import { ThemeStudioPanel } from '../components/ThemeStudioPanel';
+import { computeTeamScores } from '../lib/score';
 
 function TeamCard({ team }: { team: Team }) {
   return (
@@ -54,6 +57,7 @@ export function HostLobby() {
   };
 
   const lobbyParticipants = session.participants.filter((p) => p.role !== 'HOST');
+  const scores = computeTeamScores(session);
 
   return (
     <div className="w-full max-w-5xl space-y-6">
@@ -99,10 +103,7 @@ export function HostLobby() {
           </ul>
         </div>
 
-        <form
-          onSubmit={handleAddTeam}
-          className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4"
-        >
+        <form onSubmit={handleAddTeam} className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
           <div>
             <h3 className="text-xl font-semibold">
               <FormattedMessage id="hostLobby.createTeam" defaultMessage="Create a team" />
@@ -145,6 +146,27 @@ export function HostLobby() {
           ))}
         </div>
       </section>
+
+      {scores.length > 0 && (
+        <section className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
+          <h3 className="text-xl font-semibold">
+            <FormattedMessage id="hostLobby.scoreboard" defaultMessage="Scoreboard" />
+          </h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {scores.map(({ team, total }) => (
+              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between">
+                <span className="font-semibold" style={{ color: team.color ?? 'var(--color-primary)' }}>
+                  {team.name}
+                </span>
+                <span className="text-xl font-bold">{total}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <HostQuizPanel />
+      <ThemeStudioPanel />
     </div>
   );
 }

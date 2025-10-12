@@ -49,3 +49,13 @@ export type Theme = {
   name: string;
   variables: Record<string, string>;
 };
+
+export type QuizState = {
+  sessionId: string;
+  questionId: string;
+  prompt: string;
+  options: string[];
+  status: 'idle' | 'running' | 'revealed';
+  correctOption: number | null;
+  answers: Array<{ participantId: string; answer: number; displayName: string }>;
+};

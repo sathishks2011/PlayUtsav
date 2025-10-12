@@ -32,8 +32,9 @@ describe('PlayerLobby screen', () => {
         participantId: 'p2',
         error: undefined,
       },
-      theme: { current: 'default' },
+      theme: { current: 'default', custom: undefined },
       locale: { current: 'en' },
+      quiz: { current: null, loading: false },
     };
 
     const { getByText } = renderWithProviders(
@@ -48,4 +49,3 @@ describe('PlayerLobby screen', () => {
     expect(getByText('Ava')).toBeInTheDocument();
   });
 });
-

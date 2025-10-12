@@ -1,5 +1,7 @@
 import { FormattedMessage } from 'react-intl';
 import { useAppSelector } from '../store/hooks';
+import { computeTeamScores } from '../lib/score';
+import { PlayerQuizPanel } from '../components/PlayerQuizPanel';
 
 export function PlayerLobby() {
   const session = useAppSelector((s) => s.session.current);
@@ -8,6 +10,7 @@ export function PlayerLobby() {
   if (!session) return null;
 
   const me = session.participants.find((p) => p.id === participantId);
+  const scores = computeTeamScores(session);
 
   return (
     <div className="w-full max-w-3xl space-y-6">
@@ -84,7 +87,24 @@ export function PlayerLobby() {
           </div>
         </section>
       )}
+
+      {scores.length > 0 && (
+        <section className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
+          <h3 className="text-xl font-semibold">
+            <FormattedMessage id="hostLobby.scoreboard" defaultMessage="Scoreboard" />
+          </h3>
+          <div className="grid gap-3 md:grid-cols-2">
+            {scores.map(({ team, total }) => (
+              <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3 flex items-center justify-between">
+                <span style={{ color: team.color ?? 'var(--color-accent)' }}>{team.name}</span>
+                <span className="font-semibold text-lg">{total}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <PlayerQuizPanel />
     </div>
   );
 }
-

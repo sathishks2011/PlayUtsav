@@ -1,4 +1,4 @@
-import type { Session, Team } from '@pkg/core';
+import type { Session, Team, QuizState } from '@pkg/core';
 import { getApiBaseUrl } from './config';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -39,3 +39,36 @@ export function addTeam(sessionId: string, payload: { name: string; color?: stri
   });
 }
 
+export function startQuiz(
+  sessionId: string,
+  payload: { questionId: string; prompt: string; options: string[] }
+) {
+  return request<QuizState>(`/sessions/${sessionId}/quiz/start`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function submitQuizAnswer(
+  sessionId: string,
+  payload: { participantId: string; answer: number }
+) {
+  return request<QuizState>(`/sessions/${sessionId}/quiz/submit`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function revealQuiz(
+  sessionId: string,
+  payload: { correctOption: number | null; awards?: { teamId: string; delta: number; reason?: string }[] }
+) {
+  return request<QuizState>(`/sessions/${sessionId}/quiz/reveal`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchQuiz(sessionId: string) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz`);
+}

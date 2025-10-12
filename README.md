@@ -44,3 +44,8 @@ Notes
 - For webOS packaging, ensure apps/tv/dist contains appinfo.json and assets.
 - Wireframes: see docs/wireframes.md.
 - Clickable prototype: open docs/prototype/index.html in a browser.
+
+Sprint 2 Highlights
+- Quiz round APIs with host/player flows, live Socket.IO updates, and score awards.
+- Theme Studio with presets + custom palettes persisted to local storage.
+- Locale Lab with live English/Spanish switching.
