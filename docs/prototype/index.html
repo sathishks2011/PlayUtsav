@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Family Fun Prototype</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f172a;
+        --panel: rgba(15, 23, 42, 0.75);
+        --accent: #60a5fa;
+        --fg: #e2e8f0;
+        --border: rgba(226, 232, 240, 0.2);
+      }
+      * {
+        box-sizing: border-box;
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+      body {
+        margin: 0;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        min-height: 100vh;
+        color: var(--fg);
+        display: flex;
+      }
+      nav {
+        width: 240px;
+        border-right: 1px solid var(--border);
+        padding: 24px 16px;
+        backdrop-filter: blur(16px);
+        background: rgba(15, 23, 42, 0.65);
+        position: sticky;
+        top: 0;
+        height: 100vh;
+      }
+      nav h1 {
+        margin: 0 0 24px;
+        font-size: 1.25rem;
+      }
+      nav button {
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: inherit;
+        font-size: 0.95rem;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+      }
+      nav button:hover,
+      nav button.active {
+        background: rgba(96, 165, 250, 0.15);
+        border-color: rgba(96, 165, 250, 0.6);
+      }
+      main {
+        flex: 1;
+        padding: 32px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .screen {
+        display: none;
+        width: min(960px, 100%);
+      }
+      .screen.active {
+        display: block;
+        animation: fade 0.3s ease;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px 28px;
+        margin-bottom: 24px;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.35);
+      }
+      .panel h2 {
+        margin: 0 0 12px;
+        font-size: 1.5rem;
+      }
+      .panel p {
+        margin: 0 0 16px;
+        line-height: 1.6;
+        opacity: 0.85;
+      }
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+      .grid.columns-2 {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+      .card {
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(96, 165, 250, 0.2);
+        color: #bfdbfe;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      ul li {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      }
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 16px;
+      }
+      .pill {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        font-size: 0.85rem;
+      }
+      @keyframes fade {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @media (max-width: 900px) {
+        body {
+          flex-direction: column;
+        }
+        nav {
+          width: 100%;
+          height: auto;
+          position: static;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+        }
+        nav button {
+          flex: 1 0 140px;
+        }
+        main {
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <h1>Family Fun Prototype</h1>
+      <button data-screen="landing" class="active">Landing / Entry</button>
+      <button data-screen="host-lobby">Host Lobby</button>
+      <button data-screen="player-lobby">Player Lobby</button>
+      <button data-screen="host-control">Host Game Control</button>
+      <button data-screen="admin">Admin Dashboard</button>
+      <div style="margin-top:32px;font-size:0.8rem;opacity:0.65;line-height:1.5;">
+        Click the buttons to switch between screens. This is a lightweight wireflow reference.
+      </div>
+    </nav>
+
+    <main>
+      <section class="screen active" id="landing">
+        <div class="panel">
+          <span class="badge">Entry</span>
+          <h2>Landing / Entry</h2>
+          <p>Choose to host a new session or join with a four-letter code. Theme and language controls are always visible.</p>
+          <div class="grid columns-2">
+            <div class="card">
+              <h3>Host a new game</h3>
+              <ul>
+                <li>Your name input</li>
+                <li>Max players dropdown</li>
+                <li>Optional language selection</li>
+                <li><strong>Create session</strong> CTA generates code</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Join a game</h3>
+              <ul>
+                <li>Game code input (4 characters)</li>
+                <li>Player nickname</li>
+                <li>Error state messaging</li>
+                <li><strong>Join session</strong> CTA transitions to player lobby</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="host-lobby">
+        <div class="panel">
+          <span class="badge">Host View</span>
+          <h2>Host Lobby</h2>
+          <p>Monitor who has joined, organize teams, and prepare to start rounds.</p>
+          <div class="grid columns-2">
+            <div class="card">
+              <h3>Session Overview</h3>
+              <ul>
+                <li>Session code display + copy button</li>
+                <li>Joined counter (e.g., 2 / 6 players)</li>
+                <li>Share instructions / QR entry point</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Create Team</h3>
+              <ul>
+                <li>Team name input</li>
+                <li>Color picker</li>
+                <li><strong>Add team</strong> button updates list</li>
+              </ul>
+            </div>
+          </div>
+          <div class="panel" style="margin-top:16px; background: rgba(15, 23, 42, 0.55);">
+            <h3>Current Teams</h3>
+            <p>Each card shows the team color, member list, and controls for future functionality (reassign, delete, etc.).</p>
+          </div>
+          <div class="cta-row">
+            <span class="pill">Start Game</span>
+            <span class="pill">Auto-assign teams</span>
+            <span class="pill">Export QR</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="player-lobby">
+        <div class="panel">
+          <span class="badge">Player View</span>
+          <h2>Player Lobby</h2>
+          <p>Players confirm they are in the right session, view other participants, and wait for the host to start.</p>
+          <div class="grid columns-2">
+            <div class="card">
+              <h3>Welcome block</h3>
+              <ul>
+                <li>Personal greeting using nickname</li>
+                <li>Session code reminder</li>
+                <li>Status indicator (“Waiting for host”)</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Players & Teams</h3>
+              <ul>
+                <li>Alphabetical player list with host flag</li>
+                <li>Team cards appear once assigned</li>
+                <li>Responsive layout for mobile/TV</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="host-control">
+        <div class="panel">
+          <span class="badge">During Game</span>
+          <h2>Host Game Control</h2>
+          <p>Primary control center for running rounds, revealing content, and adjusting scores.</p>
+          <div class="card">
+            <h3>Round board</h3>
+            <ul>
+              <li>Current template (e.g., Family Feud – Round 2)</li>
+              <li>Prompt area for questions/clues/media</li>
+              <li>Controls: reveal, strikes, timer, audio playback</li>
+            </ul>
+          </div>
+          <div class="grid columns-2" style="margin-top:18px;">
+            <div class="card">
+              <h3>Score & Teams</h3>
+              <ul>
+                <li>Live scoreboard per team</li>
+                <li>Adjust score / penalties / bonus options</li>
+                <li>Quick swap for team order or seating</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Round queue</h3>
+              <ul>
+                <li>Upcoming templates (Quiz → Logo → Music)</li>
+                <li>Reorder via drag and drop (future)</li>
+                <li>Indicators for media assets readiness</li>
+              </ul>
+            </div>
+          </div>
+          <div class="cta-row">
+            <span class="pill">Next Round</span>
+            <span class="pill">Pause Timer</span>
+            <span class="pill">Open Scoring Log</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="admin">
+        <div class="panel">
+          <span class="badge">Admin</span>
+          <h2>Admin Dashboard</h2>
+          <p>Manage templates, install marketplace packs, and review analytics.</p>
+          <div class="card">
+            <h3>Template Library</h3>
+            <ul>
+              <li>Upload/import signed packages (.famgame.tgz)</li>
+              <li>List of installed templates with preview/publish controls</li>
+              <li>JSON schema validation feedback area</li>
+            </ul>
+          </div>
+          <div class="grid columns-2" style="margin-top:18px;">
+            <div class="card">
+              <h3>Marketplace</h3>
+              <ul>
+                <li>Filters: Local / Private / Community</li>
+                <li>Install / uninstall actions</li>
+                <li>Licensing and signature status indicators</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Analytics snapshot</h3>
+              <ul>
+                <li>Top games played</li>
+                <li>Average session length</li>
+                <li>Engagement metrics (players/session, retention)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const buttons = Array.from(document.querySelectorAll('nav button'));
+      const screens = Array.from(document.querySelectorAll('.screen'));
+
+      function activate(screenId) {
+        screens.forEach((section) => {
+          section.classList.toggle('active', section.id === screenId);
+        });
+        buttons.forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.screen === screenId);
+        });
+        history.replaceState(null, '', `#${screenId}`);
+      }
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => activate(btn.dataset.screen));
+      });
+
+      const initial = window.location.hash?.replace('#', '') || 'landing';
+      if (screens.some((section) => section.id === initial)) {
+        activate(initial);
+      }
+    </script>
+  </body>
+</html>
+

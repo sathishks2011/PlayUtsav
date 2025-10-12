@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String  @id @default(cuid())
+  displayName String
+  createdAt   DateTime @default(now())
+}
+
+model Session {
+  id           String          @id @default(cuid())
+  code         String          @unique
+  status       String          @default("LOBBY")
+  hostName     String?
+  maxPlayers   Int             @default(4)
+  language     String          @default("en")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  teams        Team[]
+  participants Participant[]
+  scores       Score[]
+}
+
+model Team {
+  id          String        @id @default(cuid())
+  session     Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId   String
+  name        String
+  color       String?
+  createdAt   DateTime      @default(now())
+  participants Participant[]
+  scores       Score[]
+}
+
+model Participant {
+  id         String   @id @default(cuid())
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId     String?
+  displayName String
+  role       String          @default("PLAYER")
+  joinedAt   DateTime @default(now())
+}
+
+model Score {
+  id         String   @id @default(cuid())
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId  String
+  team       Team?    @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId     String?
+  value      Int      @default(0)
+  delta      Int      @default(0)
+  reason     String?
+  recordedBy String?
+  recordedAt DateTime @default(now())
+}
+
+model Template {
+  id        String   @id @default(cuid())
+  type      String
+  title     String
+  content   String
+  locale    String   @default("en")
+  createdAt DateTime @default(now())
+}

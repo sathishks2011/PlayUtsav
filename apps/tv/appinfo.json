@@ -1,0 +1,12 @@
+{
+  "id": "com.familyfun.app",
+  "version": "1.0.0",
+  "vendor": "FamilyFun",
+  "type": "web",
+  "main": "index.html",
+  "title": "Family Fun",
+  "bgColor": "#000000",
+  "icon": "icon.png",
+  "uiRevision": 2
+}
+

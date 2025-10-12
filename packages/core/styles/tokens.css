@@ -1,0 +1,31 @@
+:root {
+  --color-primary: #5b8cff;
+  --color-accent: #ffb703;
+  --bg: #0b1020;
+  --bg-alt: radial-gradient(circle at top left, rgba(91, 140, 255, 0.25), transparent 55%);
+  --fg: #e6e9f5;
+}
+
+[data-theme="vibrant"] {
+  --color-primary: #f97316;
+  --color-accent: #22d3ee;
+  --bg: #0c0a1a;
+  --bg-alt: radial-gradient(circle at top right, rgba(249, 115, 22, 0.35), transparent 60%);
+  --fg: #f9fafc;
+}
+
+[data-theme="sunset"] {
+  --color-primary: #ef4444;
+  --color-accent: #facc15;
+  --bg: #1a0b18;
+  --bg-alt: radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.3), transparent 65%);
+  --fg: #fde4ff;
+}
+
+[data-theme="forest"] {
+  --color-primary: #22c55e;
+  --color-accent: #86efac;
+  --bg: #05140f;
+  --bg-alt: radial-gradient(circle at center, rgba(34, 197, 94, 0.25), transparent 70%);
+  --fg: #dff7ea;
+}
