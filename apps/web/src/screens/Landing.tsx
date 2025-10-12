@@ -29,48 +29,8 @@ export function Landing() {
   };
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 w-full max-w-5xl">
-      <form onSubmit={onCreate} className="rounded-2xl bg-white/10 backdrop-blur p-6 space-y-4">
-        <h2 className="text-2xl font-bold">
-          <FormattedMessage id="landing.hostTitle" defaultMessage="Host a new game" />
-        </h2>
-        <p className="text-sm opacity-80">
-          <FormattedMessage id="landing.hostDescription" defaultMessage="Create a lobby and invite family members with a code or QR." />
-        </p>
-        <label className="flex flex-col gap-1 text-sm">
-          <span><FormattedMessage id="landing.hostName" defaultMessage="Your name" /></span>
-          <input
-            className="rounded border border-white/20 bg-black/20 px-3 py-2"
-            value={hostName}
-            onChange={(e) => setHostName(e.target.value)}
-            placeholder={intl.formatMessage({ id: 'landing.hostNamePlaceholder', defaultMessage: 'Host name' })}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span><FormattedMessage id="landing.maxPlayers" defaultMessage="Max players" /></span>
-          <input
-            type="number"
-            min={2}
-            max={32}
-            className="rounded border border-white/20 bg-black/20 px-3 py-2"
-            value={maxPlayers}
-            onChange={(e) => setMaxPlayers(Number(e.target.value))}
-          />
-        </label>
-        <button
-          type="submit"
-          className="px-4 py-2 rounded bg-[var(--color-primary)] text-white"
-          disabled={isBusy}
-        >
-          {isBusy ? (
-            <FormattedMessage id="landing.creating" defaultMessage="Creating..." />
-          ) : (
-            <FormattedMessage id="landing.create" defaultMessage="Create session" />
-          )}
-        </button>
-      </form>
-
-      <form onSubmit={onJoin} className="rounded-2xl bg-white/5 backdrop-blur p-6 space-y-4">
+    <div className="w-full max-w-md mx-auto">
+      <form onSubmit={onJoin} className="rounded-2xl bg-[var(--card)] backdrop-blur p-8 space-y-4 shadow-lg">
         <h2 className="text-2xl font-bold">
           <FormattedMessage id="landing.joinTitle" defaultMessage="Join a game" />
         </h2>

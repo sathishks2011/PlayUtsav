@@ -5,6 +5,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const base = await getApiBaseUrl();
   const response = await fetch(`${base}${path}`, {
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+    credentials: 'include',
     ...init,
   });
   if (!response.ok) {
@@ -71,4 +72,49 @@ export function revealQuiz(
 
 export function fetchQuiz(sessionId: string) {
   return request<QuizState | null>(`/sessions/${sessionId}/quiz`);
+}
+
+// Auth API
+export type User = {
+  id: string;
+  email: string;
+  role: 'ADMIN' | 'HOST';
+  displayName: string | null;
+  hostProfile?: {
+    id: string;
+    organization: string | null;
+    contactEmail: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export function signup(payload: {
+  email: string;
+  password: string;
+  displayName?: string;
+  organization?: string;
+  contactEmail?: string;
+}) {
+  return request<User>('/auth/signup', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function login(payload: { email: string; password: string }) {
+  return request<User>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function logout() {
+  return request<{ success: boolean }>('/auth/logout', {
+    method: 'POST',
+  });
+}
+
+export function getProfile() {
+  return request<User | null>('/auth/me');
 }
