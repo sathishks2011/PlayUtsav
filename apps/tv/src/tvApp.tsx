@@ -3,6 +3,9 @@ import {
   useFocusable,
 } from '@noriginmedia/norigin-spatial-navigation';
 import { useEffect, useState } from 'react';
+import JoinScreen from './screens/JoinScreen';
+
+type Screen = 'menu' | 'join' | 'lobby';
 
 const MenuItem = ({
   label,
@@ -31,6 +34,8 @@ const MenuItem = ({
 
 function App() {
   const { ref, focusKey, focusSelf } = useFocusable();
+  const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
+  const [sessionCode, setSessionCode] = useState<string>('');
   const [selectedItem, setSelectedItem] = useState<string>('');
   const [clickCount, setClickCount] = useState<number>(0);
   const [lastKey, setLastKey] = useState<string>('');
@@ -97,7 +102,36 @@ function App() {
     setSelectedItem(item);
     setClickCount((prev) => prev + 1);
     console.log(`${item} button pressed!`);
+    
+    if (item === 'Play') {
+      setCurrentScreen('join');
+    }
   };
+
+  const handleJoinSession = async (code: string) => {
+    console.log('Joining session with code:', code);
+    setSessionCode(code);
+    // TODO: Validate code and join session via API
+    setCurrentScreen('lobby');
+  };
+
+  // Render different screens based on current state
+  if (currentScreen === 'join') {
+    return <JoinScreen onJoin={handleJoinSession} />;
+  }
+
+  if (currentScreen === 'lobby') {
+    return (
+      <FocusContext.Provider value={focusKey}>
+        <div ref={ref} className="app">
+          <div className="content">
+            <h1 className="title">Session: {sessionCode}</h1>
+            <p className="lobby-message">Waiting for host to start...</p>
+          </div>
+        </div>
+      </FocusContext.Provider>
+    );
+  }
 
   return (
     <FocusContext.Provider value={focusKey}>
