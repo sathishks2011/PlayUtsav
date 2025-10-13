@@ -21,15 +21,6 @@ const submitSchema = z.object({
 
 const revealSchema = z.object({
   correctOption: z.number().int().nullable().default(null),
-  awards: z
-    .array(
-      z.object({
-        teamId: z.string().min(1),
-        delta: z.number().int(),
-        reason: z.string().min(1).optional(),
-      })
-    )
-    .optional(),
 });
 
 @Controller('/sessions/:sessionId/quiz')
@@ -76,21 +67,14 @@ export class QuizController {
   async reveal(@Param('sessionId') sessionId: string, @Body() body: unknown) {
     const parsed = revealSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    
+    // The quiz.reveal method now handles scoring automatically via ScoreCalculationService
     const quizState = await this.quiz.reveal(sessionId, parsed.data);
     await this.gateway.emitQuizUpdate(sessionId, quizState);
     
-    // Emit score animation events for each award
-    if (parsed.data.awards && parsed.data.awards.length > 0) {
-      for (const award of parsed.data.awards) {
-        await this.gateway.emitToSession(sessionId, 'score:animated', {
-          teamId: award.teamId,
-          points: award.delta,
-          isBonus: award.delta > 100, // Consider > 100 as bonus points
-          timestamp: Date.now(),
-          reason: award.reason,
-        });
-      }
-    }
+    // TODO: In the future, we could fetch the scoring results from the reveal
+    // and emit individual score:animated events for each player's score change
+    // For now, we'll just trigger a session update so the frontend can fetch the latest scores
     
     const snapshot = await this.sessions.getSnapshot(sessionId);
     if (snapshot) {

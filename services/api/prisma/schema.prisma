@@ -141,3 +141,81 @@ model Template {
   locale    String   @default("en")
   createdAt DateTime @default(now())
 }
+
+// Scoring System Models
+
+model ScoringConfiguration {
+  id          String   @id @default(cuid())
+  hostId      String
+  name        String
+  description String?
+  mode        String   // STANDARD, COMPETITIVE, EDUCATIONAL, CUSTOM
+  config      String   // JSON field containing full ScoringConfig
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  sessions    SessionScoring[]
+  
+  @@index([hostId])
+  @@index([hostId, isDefault])
+}
+
+model SessionScoring {
+  id              String                 @id @default(cuid())
+  sessionId       String                 @unique
+  configId        String
+  config          ScoringConfiguration   @relation(fields: [configId], references: [id], onDelete: Restrict)
+  createdAt       DateTime               @default(now())
+  
+  history         ScoringHistory[]
+  playerStats     PlayerScoringStats[]
+  
+  @@index([sessionId])
+}
+
+model ScoringHistory {
+  id              String         @id @default(cuid())
+  sessionScoringId String
+  sessionScoring  SessionScoring @relation(fields: [sessionScoringId], references: [id], onDelete: Cascade)
+  questionId      String
+  playerId        String
+  
+  isCorrect       Boolean
+  answerTime      Int            // Milliseconds
+  pointsAwarded   Int
+  breakdown       String         // JSON field containing ScoringBreakdown[]
+  
+  createdAt       DateTime       @default(now())
+  
+  @@index([sessionScoringId])
+  @@index([sessionScoringId, playerId])
+  @@index([sessionScoringId, questionId])
+}
+
+model PlayerScoringStats {
+  id                  String         @id @default(cuid())
+  sessionScoringId    String
+  sessionScoring      SessionScoring @relation(fields: [sessionScoringId], references: [id], onDelete: Cascade)
+  playerId            String
+  
+  totalScore          Int            @default(0)
+  currentStreak       Int            @default(0)
+  maxStreak           Int            @default(0)
+  
+  totalAnswers        Int            @default(0)
+  correctAnswers      Int            @default(0)
+  incorrectAnswers    Int            @default(0)
+  
+  averageAnswerTime   Int            @default(0) // Milliseconds
+  fastestAnswerTime   Int?           // Milliseconds
+  
+  lastAnswerCorrect   Boolean?
+  lastAnswerTime      DateTime?
+  
+  updatedAt           DateTime       @updatedAt
+  
+  @@unique([sessionScoringId, playerId])
+  @@index([sessionScoringId])
+  @@index([playerId])
+}

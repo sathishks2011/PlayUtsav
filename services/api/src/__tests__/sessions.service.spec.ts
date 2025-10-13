@@ -22,6 +22,7 @@ describe('SessionsService', () => {
 
   let service: SessionsService;
   let mockPrisma: any;
+  let mockSessionScoring: { attachConfigToSession: jest.Mock };
   let randomSpy: jest.SpyInstance<number, []>;
 
   beforeEach(() => {
@@ -40,7 +41,10 @@ describe('SessionsService', () => {
         create: jest.fn(),
       },
     };
-    service = new SessionsService(mockPrisma);
+    mockSessionScoring = {
+      attachConfigToSession: jest.fn(),
+    };
+    service = new SessionsService(mockPrisma, mockSessionScoring as any);
     randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.123456);
   });
 
@@ -93,6 +97,21 @@ describe('SessionsService', () => {
       }),
     });
     expect(session).toEqual(snapshot);
+  });
+
+  it('attaches default scoring when host id provided', async () => {
+    mockPrisma.session.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(snapshot);
+    mockPrisma.session.create.mockResolvedValue(baseSession);
+    mockSessionScoring.attachConfigToSession.mockResolvedValue({});
+
+    await service.create({ hostName: 'Ava', hostId: 'host-123' });
+
+    expect(mockSessionScoring.attachConfigToSession).toHaveBeenCalledWith({
+      sessionId: baseSession.id,
+      hostId: 'host-123',
+    });
   });
 
   it('throws when joining unknown session', async () => {

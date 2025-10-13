@@ -14,6 +14,9 @@ describe('QuizService', () => {
     quizAnswer: {
       upsert: jest.fn(),
     },
+    participant: {
+      findMany: jest.fn(),
+    },
   } as unknown as {
     quizRound: {
       updateMany: jest.Mock;
@@ -24,6 +27,9 @@ describe('QuizService', () => {
     quizAnswer: {
       upsert: jest.Mock;
     };
+    participant: {
+      findMany: jest.Mock;
+    };
   };
 
   const mockSessions = {
@@ -32,9 +38,16 @@ describe('QuizService', () => {
     adjustScore: jest.fn().mockResolvedValue(undefined),
   } as any;
 
+  const mockScoring = {
+    scoreAnswer: jest.fn().mockResolvedValue({
+      result: { totalPoints: 100, breakdown: [] },
+      stats: {},
+    }),
+  } as any;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new QuizService(mockPrisma as any, mockSessions);
+    service = new QuizService(mockPrisma as any, mockSessions, mockScoring);
   });
 
   it('creates a quiz round with options', async () => {
@@ -122,7 +135,9 @@ describe('QuizService', () => {
           { index: 0, text: 'A' },
           { index: 1, text: 'B' },
         ],
-        answers: [],
+        answers: [
+          { id: 'ans-1', participantId: 'p1', answer: 1, createdAt: now },
+        ],
       })
       .mockResolvedValueOnce({
         id: 'round-1',
@@ -137,16 +152,41 @@ describe('QuizService', () => {
           { index: 0, text: 'A' },
           { index: 1, text: 'B' },
         ],
-        answers: [],
+        answers: [
+          { id: 'ans-1', participantId: 'p1', answer: 1, createdAt: now },
+        ],
+      })
+      .mockResolvedValueOnce({
+        // Third call for fetchActiveRound after reveal
+        id: 'round-1',
+        sessionId: 'session-1',
+        questionId: 'q1',
+        prompt: 'Sample?',
+        status: 'revealed',
+        correctOption: 1,
+        duration: 30,
+        createdAt: now,
+        options: [
+          { index: 0, text: 'A' },
+          { index: 1, text: 'B' },
+        ],
+        answers: [
+          { id: 'ans-1', participantId: 'p1', answer: 1, createdAt: now },
+        ],
       });
 
     const state = await service.reveal('session-1', {
       correctOption: 1,
-      awards: [{ teamId: 'team-1', delta: 10 }],
     });
 
     expect(mockPrisma.quizRound.update).toHaveBeenCalled();
-    expect(mockSessions.adjustScore).toHaveBeenCalledWith('session-1', 'team-1', 10, 'quiz-award');
+    expect(mockScoring.scoreAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'session-1',
+        playerId: 'p1',
+        isCorrect: true,
+      })
+    );
     expect(state?.status).toBe('revealed');
   });
 

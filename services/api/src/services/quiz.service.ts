@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { SessionsService } from './sessions.service';
+import { ScoreCalculationService } from './scoring/score-calculation.service';
 
 type QuizState = {
   sessionId: string;
@@ -16,7 +17,11 @@ type QuizState = {
 
 @Injectable()
 export class QuizService {
-  constructor(private readonly prisma: PrismaService, private readonly sessions: SessionsService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessions: SessionsService,
+    private readonly scoring: ScoreCalculationService,
+  ) {}
 
   private toState(round: {
     id: string;
@@ -52,7 +57,7 @@ export class QuizService {
   }
 
   private async fetchActiveRound(sessionId: string) {
-    const round = await this.prisma.quizRound.findFirst({
+    const round = await (this.prisma as any).quizRound.findFirst({
       where: { sessionId },
       orderBy: { createdAt: 'desc' },
       include: { options: true, answers: true },
@@ -69,12 +74,12 @@ export class QuizService {
       throw new BadRequestException('Quiz requires at least two options');
     }
 
-    await this.prisma.quizRound.updateMany({
+    await (this.prisma as any).quizRound.updateMany({
       where: { sessionId, status: 'running' },
       data: { status: 'archived' },
     });
 
-    const round = await this.prisma.quizRound.create({
+    const round = await (this.prisma as any).quizRound.create({
       data: {
         sessionId,
         questionId: payload.questionId,
@@ -91,7 +96,7 @@ export class QuizService {
   }
 
   async submit(sessionId: string, participantId: string, answer: number) {
-    const round = await this.prisma.quizRound.findFirst({
+    const round = await (this.prisma as any).quizRound.findFirst({
       where: { sessionId, status: { in: ['running', 'revealed'] } },
       orderBy: { createdAt: 'desc' },
       include: { options: true },
@@ -105,7 +110,7 @@ export class QuizService {
       throw new NotFoundException('Participant not found in session');
     }
 
-    await this.prisma.quizAnswer.upsert({
+    await (this.prisma as any).quizAnswer.upsert({
       where: { quizRoundId_participantId: { quizRoundId: round.id, participantId } },
       create: {
         quizRoundId: round.id,
@@ -119,6 +124,8 @@ export class QuizService {
       },
     });
 
+    // The actual scoring will happen in the 'reveal' step.
+
     return this.fetchActiveRound(sessionId);
   }
 
@@ -126,7 +133,7 @@ export class QuizService {
    * Check if all players in the session have answered the current quiz
    */
   async checkAllPlayersAnswered(sessionId: string): Promise<boolean> {
-    const round = await this.prisma.quizRound.findFirst({
+    const round = await (this.prisma as any).quizRound.findFirst({
       where: { sessionId, status: 'running' },
       orderBy: { createdAt: 'desc' },
       include: { answers: true },
@@ -156,14 +163,11 @@ export class QuizService {
     return allAnswered;
   }
 
-  async reveal(
-    sessionId: string,
-    payload: { correctOption: number | null; awards?: { teamId: string; delta: number; reason?: string }[] }
-  ) {
-    const round = await this.prisma.quizRound.findFirst({
+  async reveal(sessionId: string, payload: { correctOption: number | null }) {
+    const round = await (this.prisma as any).quizRound.findFirst({
       where: { sessionId, status: { in: ['running', 'revealed'] } },
       orderBy: { createdAt: 'desc' },
-      include: { options: true },
+      include: { options: true, answers: true }, // Ensure answers are included
     });
     if (!round) throw new BadRequestException('No active quiz');
 
@@ -174,7 +178,8 @@ export class QuizService {
       throw new BadRequestException('Correct option out of range');
     }
 
-    await this.prisma.quizRound.update({
+    // Update the round first to lock in the correct answer
+    await (this.prisma as any).quizRound.update({
       where: { id: round.id },
       data: {
         status: 'revealed',
@@ -182,10 +187,31 @@ export class QuizService {
       },
     });
 
-    if (payload.awards) {
-      for (const award of payload.awards) {
+    // Now, trigger scoring for all answers submitted for this round
+    if (payload.correctOption !== null) {
+      for (const answer of round.answers) {
+        const isCorrect = answer.answer === payload.correctOption;
+        
+        // Calculate the time taken (based on createdAt timestamp)
+        // For now, we'll use a placeholder. In a real scenario, you'd track the time elapsed.
+        const answerTime = Math.floor(
+          (new Date(answer.createdAt).getTime() - new Date(round.createdAt).getTime()) / 1000
+        );
+
         // eslint-disable-next-line no-await-in-loop
-        await this.sessions.adjustScore(sessionId, award.teamId, award.delta, award.reason ?? 'quiz-award');
+        await this.scoring.scoreAnswer({
+          sessionId: round.sessionId,
+          playerId: answer.participantId,
+          questionId: round.questionId,
+          isCorrect,
+          answerTime: Math.max(answerTime, 0), // Ensure non-negative
+          submittedAt: new Date(answer.createdAt),
+          question: {
+            basePoints: 100, // TODO: Get this from the question metadata
+            timeLimit: round.duration,
+            difficulty: 'medium', // TODO: Get this from the question metadata
+          },
+        });
       }
     }
 

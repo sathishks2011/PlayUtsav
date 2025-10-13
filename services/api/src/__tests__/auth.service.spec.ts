@@ -6,14 +6,19 @@ import { AuthService } from '../auth/auth.service';
 import { PrismaService } from '../prisma.service';
 
 jest.mock('bcrypt');
-
 describe('AuthService', () => {
   let service: AuthService;
-  let prisma: jest.Mocked<PrismaService>;
+  type MockPrisma = {
+    user: {
+      findUnique: jest.Mock;
+      create: jest.Mock;
+    };
+  };
+  let prisma: MockPrisma;
   let jwt: jest.Mocked<JwtService>;
 
   beforeEach(async () => {
-    const mockPrisma = {
+    const mockPrisma: MockPrisma = {
       user: {
         findUnique: jest.fn(),
         create: jest.fn(),
@@ -33,7 +38,7 @@ describe('AuthService', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    prisma = module.get(PrismaService) as jest.Mocked<PrismaService>;
+  prisma = module.get(PrismaService) as MockPrisma;
     jwt = module.get(JwtService) as jest.Mocked<JwtService>;
   });
 

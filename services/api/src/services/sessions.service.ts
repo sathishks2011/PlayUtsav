@@ -1,9 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { SessionScoringService } from './scoring/session-scoring.service';
 
 @Injectable()
 export class SessionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sessionScoringService: SessionScoringService,
+  ) {}
 
   list() {
     return this.prisma.session.findMany({
@@ -36,7 +40,7 @@ export class SessionsService {
         hostId: input.hostId,
         maxPlayers: input.maxPlayers ?? 6,
         language: input.language ?? 'en',
-      },
+      } as any,
     });
 
     if (input.hostName) {
@@ -46,6 +50,13 @@ export class SessionsService {
           role: 'HOST',
           sessionId: session.id,
         },
+      });
+    }
+
+    if (input.hostId) {
+      await this.sessionScoringService.attachConfigToSession({
+        sessionId: session.id,
+        hostId: input.hostId,
       });
     }
 

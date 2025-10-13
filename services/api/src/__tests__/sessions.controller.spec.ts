@@ -27,13 +27,15 @@ describe('SessionsController', () => {
   });
 
   it('creates session and emits update', async () => {
-    await expect(controller.create({ hostName: 'Ava', maxPlayers: 6 })).resolves.toEqual(session);
-    expect(mockService.create).toHaveBeenCalled();
+    const hostUser = { userId: 'host-1', role: 'HOST' };
+    await expect(controller.create({ hostName: 'Ava', maxPlayers: 6 }, hostUser)).resolves.toEqual(session);
+    expect(mockService.create).toHaveBeenCalledWith({ hostName: 'Ava', maxPlayers: 6, hostId: hostUser.userId });
     expect(mockGateway.emitSessionUpdate).toHaveBeenCalledWith(session.id);
   });
 
   it('validates payloads and throws on bad request', async () => {
-    await expect(controller.create({ maxPlayers: 1 } as any)).rejects.toBeInstanceOf(BadRequestException);
+    const hostUser = { userId: 'host-1', role: 'HOST' };
+    await expect(controller.create({ maxPlayers: 1 } as any, hostUser)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('joins session and emits update', async () => {

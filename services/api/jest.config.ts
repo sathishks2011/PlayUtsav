@@ -9,6 +9,7 @@ const config: Config = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@pkg/core$': '<rootDir>/../../packages/core/src/index.ts',
   },
   setupFilesAfterEnv: [],
   testMatch: ['**/__tests__/**/*.spec.ts'],
