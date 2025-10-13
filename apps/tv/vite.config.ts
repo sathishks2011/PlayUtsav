@@ -15,4 +15,9 @@ export default defineConfig({
       { find: '@pkg/ui', replacement: resolve(__dirname, '../../packages/ui/src') },
     ],
   },
+  server: {
+    host: '0.0.0.0', // Listen on all network interfaces
+    port: 5173,
+    strictPort: false,
+  },
 });

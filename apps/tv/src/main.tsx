@@ -1,19 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { FocusContext, init } from '@noriginmedia/norigin-spatial-navigation';
 import App from './tvApp';
 import './tv.css';
+import { init } from '@noriginmedia/norigin-spatial-navigation';
 
 init({
-  visualDebug: false,
-  throttle: 80,
+  // debug: true,
+  // visualDebug: true,
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <FocusContext.Provider value={null}>
-      <App />
-    </FocusContext.Provider>
+    <App />
   </React.StrictMode>
 );
 

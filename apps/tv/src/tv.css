@@ -1,6 +1,111 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+.app {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+.title {
+  color: #fff;
+  font-size: 48px;
+  font-weight: bold;
+  text-align: center;
+  margin: 0;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.feedback {
+  background-color: rgba(76, 175, 80, 0.2);
+  border: 2px solid #4caf50;
+  border-radius: 12px;
+  padding: 20px 40px;
+  color: #4caf50;
+  font-size: 24px;
+  text-align: center;
+  animation: slideIn 0.3s ease-out;
+}
+
+.feedback p {
+  margin: 8px 0;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.menu-item {
+  background-color: #444;
+  color: white;
+  padding: 25px 60px;
+  border-radius: 12px;
+  font-size: 32px;
+  text-align: center;
+  min-width: 300px;
+  border: 3px solid transparent;
+  transition: all 0.2s ease-in-out;
+}
+
+.menu-item-focused {
+  background-color: #0f3460;
+  color: white;
+  padding: 25px 60px;
+  border-radius: 12px;
+  font-size: 32px;
+  text-align: center;
+  min-width: 300px;
+  border: 3px solid #e94560;
+  transform: scale(1.1);
+  box-shadow: 0 8px 16px rgba(233, 69, 96, 0.4);
+  transition: all 0.2s ease-in-out;
+}
+
+.instructions {
+  color: #999;
+  font-size: 18px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.instructions p {
+  margin: 0;
+}
+
+.debug {
+  background-color: rgba(255, 152, 0, 0.2);
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 10px 20px;
+  color: #ff9800;
+  font-size: 18px;
+  text-align: center;
+}
+
+.focus-debug {
+  font-size: 14px;
+  margin-top: 10px;
+}
 
 * { outline: none; }
 

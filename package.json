@@ -13,6 +13,8 @@
     "dev:web": "pnpm --filter @app/web dev",
     "dev:tv": "pnpm --filter @app/tv dev",
     "dev:api": "pnpm --filter @svc/api start:dev"
+  },
+  "dependencies": {
+    "@noriginmedia/norigin-spatial-navigation": "^2.3.0"
   }
 }
-
