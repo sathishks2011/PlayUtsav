@@ -4,6 +4,8 @@ import {
 } from '@noriginmedia/norigin-spatial-navigation';
 import { useEffect, useState } from 'react';
 import JoinScreen from './screens/JoinScreen';
+import ScreenSaver from './components/ScreenSaver';
+import { useIdleDetector } from './hooks/useIdleDetector';
 
 type Screen = 'menu' | 'join' | 'lobby';
 
@@ -40,8 +42,23 @@ function App() {
   const [clickCount, setClickCount] = useState<number>(0);
   const [lastKey, setLastKey] = useState<string>('');
   const [currentFocus, setCurrentFocus] = useState<number>(0);
+  const [showScreenSaver, setShowScreenSaver] = useState(false);
   
   const menuItems = ['Play', 'Settings', 'Exit'];
+
+  // Detect idle state (2 minutes)
+  const isIdle = useIdleDetector({
+    timeout: 120000, // 2 minutes
+    onIdle: () => setShowScreenSaver(true),
+    onActive: () => setShowScreenSaver(false),
+  });
+
+  // Mock team data for screen saver
+  const mockTeams = [
+    { name: 'Team Alpha', score: 1250, color: '#e94560' },
+    { name: 'Team Beta', score: 1100, color: '#0f3460' },
+    { name: 'Team Gamma', score: 980, color: '#4caf50' },
+  ];
 
   useEffect(() => {
     focusSelf();
@@ -114,6 +131,18 @@ function App() {
     // TODO: Validate code and join session via API
     setCurrentScreen('lobby');
   };
+
+  // Render screen saver if idle
+  if (showScreenSaver) {
+    return (
+      <ScreenSaver
+        sessionCode={sessionCode || undefined}
+        sessionName="PlayUtsav Quiz Night"
+        teams={mockTeams}
+        onDismiss={() => setShowScreenSaver(false)}
+      />
+    );
+  }
 
   // Render different screens based on current state
   if (currentScreen === 'join') {

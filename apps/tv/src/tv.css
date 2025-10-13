@@ -323,5 +323,146 @@
   text-align: center;
 }
 
+/* Screen Saver Styles */
+.screensaver {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.screensaver-logo {
+  position: absolute;
+  left: var(--logo-x, 0);
+  top: var(--logo-y, 0);
+  transition: none;
+  will-change: left, top;
+}
+
+.logo-content {
+  text-align: center;
+  padding: 40px;
+  background: linear-gradient(135deg, rgba(233, 69, 96, 0.2) 0%, rgba(15, 52, 96, 0.2) 100%);
+  border-radius: 24px;
+  border: 2px solid rgba(233, 69, 96, 0.3);
+  box-shadow: 0 8px 32px rgba(233, 69, 96, 0.2);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.logo-text {
+  font-size: 72px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #e94560 0%, #0f3460 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  text-shadow: 0 4px 8px rgba(233, 69, 96, 0.3);
+}
+
+.logo-tagline {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 10px 0 0 0;
+}
+
+.screensaver-info {
+  position: absolute;
+  padding: 30px;
+}
+
+.screensaver-info.top-left {
+  top: 0;
+  left: 0;
+}
+
+.screensaver-info.top-right {
+  top: 0;
+  right: 0;
+}
+
+.screensaver-info.bottom-left {
+  bottom: 0;
+  left: 0;
+}
+
+.screensaver-info.bottom-right {
+  bottom: 0;
+  right: 0;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 24px 32px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  min-width: 200px;
+}
+
+.info-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 8px 0;
+}
+
+.info-value {
+  font-size: 32px;
+  color: white;
+  font-weight: bold;
+  margin: 0;
+}
+
+.team-card {
+  min-width: 250px;
+}
+
+.team-info {
+  padding-left: 16px;
+  border-left: 4px solid #e94560;
+  margin-top: 12px;
+}
+
+.team-name {
+  font-size: 24px;
+  color: white;
+  font-weight: bold;
+  margin: 0 0 8px 0;
+}
+
+.team-score {
+  font-size: 36px;
+  color: #4caf50;
+  font-weight: bold;
+  margin: 0;
+}
+
+.screensaver-hint {
+  position: absolute;
+  bottom: 50%;
+  left: 50%;
+  transform: translate(-50%, 200px);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 18px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
 * { outline: none; }
 
