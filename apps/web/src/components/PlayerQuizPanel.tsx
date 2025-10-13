@@ -13,14 +13,14 @@ export function PlayerQuizPanel() {
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  if (!quiz || !sessionId || !participantId) return null;
-
   useEffect(() => {
+    if (!quiz) return;
     setSelected(null);
     setSubmitted(false);
-  }, [quiz.questionId, quiz.status]);
+  }, [quiz?.questionId, quiz?.status]);
 
   useEffect(() => {
+    if (!quiz) return;
     const compute = () => {
       const start = new Date(quiz.createdAt).getTime();
       const remaining = quiz.duration - (Date.now() - start) / 1000;
@@ -29,11 +29,14 @@ export function PlayerQuizPanel() {
     setTimeLeft(compute());
     const interval = window.setInterval(() => setTimeLeft(compute()), 500);
     return () => window.clearInterval(interval);
-  }, [quiz.questionId, quiz.status]);
+  }, [quiz?.questionId, quiz?.status, quiz]);
+
+  // Guard clause after all hooks
+  if (!quiz || !sessionId || !participantId) return null;
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (selected == null || quiz.status !== 'running') return;
+    if (selected == null || quiz.status !== 'running' || !sessionId || !participantId) return;
     dispatch(submitQuizAnswerThunk({ sessionId, participantId, answer: selected }));
     setSubmitted(true);
   };
@@ -93,13 +96,23 @@ export function PlayerQuizPanel() {
             <span>{option}</span>
           </label>
         ))}
-        <button
-          type="submit"
-          className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
-          disabled={disabled}
-        >
-          <FormattedMessage id="playerQuiz.submit" defaultMessage="Submit answer" />
-        </button>
+        {!submitted && !hasRevealed && (
+          <button
+            type="submit"
+            className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
+            disabled={disabled}
+          >
+            <FormattedMessage id="playerQuiz.submit" defaultMessage="Submit answer" />
+          </button>
+        )}
+        {submitted && !hasRevealed && (
+          <div className="px-4 py-3 rounded bg-emerald-500/20 border border-emerald-400/40 text-sm text-emerald-100">
+            <FormattedMessage
+              id="playerQuiz.waitingForOthers"
+              defaultMessage="Answer submitted! Waiting for others..."
+            />
+          </div>
+        )}
         {hasRevealed && quiz.correctOption != null && (
           <div className="text-sm opacity-80">
             <FormattedMessage

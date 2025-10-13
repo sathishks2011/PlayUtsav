@@ -57,6 +57,16 @@ export class QuizController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const quizState = await this.quiz.submit(sessionId, parsed.data.participantId, parsed.data.answer);
     await this.gateway.emitQuizUpdate(sessionId, quizState);
+    
+    // Check if all players have answered (for auto-reveal feature)
+    const allAnswered = await this.quiz.checkAllPlayersAnswered(sessionId);
+    console.log(`[QuizController] All players answered check for session ${sessionId}:`, allAnswered);
+    if (allAnswered) {
+      // Emit event to notify frontend that all players have answered
+      console.log(`[QuizController] Emitting quiz:all-answered event for session ${sessionId}`);
+      await this.gateway.emitToSession(sessionId, 'quiz:all-answered', { sessionId });
+    }
+    
     return quizState;
   }
 
@@ -68,6 +78,20 @@ export class QuizController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const quizState = await this.quiz.reveal(sessionId, parsed.data);
     await this.gateway.emitQuizUpdate(sessionId, quizState);
+    
+    // Emit score animation events for each award
+    if (parsed.data.awards && parsed.data.awards.length > 0) {
+      for (const award of parsed.data.awards) {
+        await this.gateway.emitToSession(sessionId, 'score:animated', {
+          teamId: award.teamId,
+          points: award.delta,
+          isBonus: award.delta > 100, // Consider > 100 as bonus points
+          timestamp: Date.now(),
+          reason: award.reason,
+        });
+      }
+    }
+    
     const snapshot = await this.sessions.getSnapshot(sessionId);
     if (snapshot) {
       await this.gateway.emitSessionUpdate(sessionId);
@@ -78,5 +102,11 @@ export class QuizController {
   @Get()
   getState(@Param('sessionId') sessionId: string) {
     return this.quiz.get(sessionId);
+  }
+
+  @Get('all-answered')
+  async checkAllAnswered(@Param('sessionId') sessionId: string) {
+    const allAnswered = await this.quiz.checkAllPlayersAnswered(sessionId);
+    return { allAnswered };
   }
 }

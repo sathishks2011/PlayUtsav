@@ -9,7 +9,7 @@ export function Landing() {
   const status = useAppSelector((s) => s.session.status);
   const error = useAppSelector((s) => s.session.error);
   const [hostName, setHostName] = useState('');
-  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [maxPlayers, setMaxPlayers] = useState(6);
   const [joinCode, setJoinCode] = useState('');
   const [playerName, setPlayerName] = useState('');
 

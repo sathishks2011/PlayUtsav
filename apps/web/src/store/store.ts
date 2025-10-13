@@ -3,6 +3,7 @@ import sessionReducer from './slices/sessionSlice';
 import themeReducer from './slices/themeSlice';
 import localeReducer from './slices/localeSlice';
 import quizReducer from './slices/quizSlice';
+import settingsReducer from './slices/settingsSlice';
 import authReducer from './slices/authSlice';
 
 export const store = configureStore({
@@ -12,6 +13,7 @@ export const store = configureStore({
     locale: localeReducer,
     quiz: quizReducer,
     auth: authReducer,
+    settings: settingsReducer,
   },
 });
 

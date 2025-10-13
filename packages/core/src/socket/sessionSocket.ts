@@ -6,6 +6,8 @@ export type SessionSocket = {
   unsubscribe: (sessionId: string) => void;
   onQuiz: (sessionId: string, cb: (state: QuizState | null) => void) => void;
   offQuiz: (sessionId: string) => void;
+  on: (event: string, cb: (...args: unknown[]) => void) => void;
+  off: (event: string, cb?: (...args: unknown[]) => void) => void;
   disconnect: () => void;
 };
 
@@ -22,9 +24,25 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
   });
 
   socket.on('quiz:update', (payload: QuizState | null) => {
-    if (!payload) return;
+    console.log('[SessionSocket] Received quiz:update event:', payload);
+    if (!payload) {
+      console.warn('[SessionSocket] quiz:update payload is null or undefined');
+      return;
+    }
     const handler = quizListeners.get(payload.sessionId);
-    if (handler) handler(payload);
+    if (handler) {
+      console.log('[SessionSocket] Calling quiz handler for session:', payload.sessionId);
+      handler(payload);
+    } else {
+      console.warn('[SessionSocket] No quiz handler registered for session:', payload.sessionId);
+      console.log('[SessionSocket] Registered sessions:', Array.from(quizListeners.keys()));
+    }
+  });
+
+  // Listen for participant removal events (player kicked by host)
+  socket.on('participant:removed', (payload: { participantId: string }) => {
+    console.log('[SessionSocket] Participant removed event:', payload);
+    // This will be handled by custom listeners via the on() method
   });
 
   return {
@@ -37,10 +55,22 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
       socket.emit('session:unsubscribe', { sessionId });
     },
     onQuiz(sessionId, cb) {
+      console.log('[SessionSocket] Registering quiz listener for session:', sessionId);
       quizListeners.set(sessionId, cb);
     },
     offQuiz(sessionId) {
+      console.log('[SessionSocket] Unregistering quiz listener for session:', sessionId);
       quizListeners.delete(sessionId);
+    },
+    on(event, cb) {
+      socket.on(event, cb);
+    },
+    off(event, cb) {
+      if (cb) {
+        socket.off(event, cb);
+      } else {
+        socket.off(event);
+      }
     },
     disconnect() {
       socket.disconnect();

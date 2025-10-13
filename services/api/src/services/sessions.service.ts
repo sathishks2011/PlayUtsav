@@ -34,7 +34,7 @@ export class SessionsService {
         code,
         hostName: input.hostName,
         hostId: input.hostId,
-        maxPlayers: input.maxPlayers ?? 4,
+        maxPlayers: input.maxPlayers ?? 6,
         language: input.language ?? 'en',
       },
     });
@@ -105,6 +105,57 @@ export class SessionsService {
 
   async findParticipant(participantId: string) {
     return this.prisma.participant.findUnique({ where: { id: participantId } });
+  }
+
+  async removeParticipant(sessionId: string, participantId: string) {
+    // Verify participant exists and belongs to the session
+    const participant = await this.prisma.participant.findFirst({
+      where: { id: participantId, sessionId },
+    });
+    
+    if (!participant) {
+      throw new NotFoundException('Participant not found in this session');
+    }
+
+    // Don't allow removing the host
+    if (participant.role === 'HOST') {
+      throw new BadRequestException('Cannot remove the host');
+    }
+
+    // Delete the participant (cascade will handle related records)
+    await this.prisma.participant.delete({ where: { id: participantId } });
+    
+    return { success: true };
+  }
+
+  async assignParticipantToTeam(sessionId: string, participantId: string, teamId: string | null) {
+    // Verify participant exists and belongs to the session
+    const participant = await this.prisma.participant.findFirst({
+      where: { id: participantId, sessionId },
+    });
+    
+    if (!participant) {
+      throw new NotFoundException('Participant not found in this session');
+    }
+
+    // If teamId is provided, verify team exists and belongs to the session
+    if (teamId) {
+      const team = await this.prisma.team.findFirst({
+        where: { id: teamId, sessionId },
+      });
+      
+      if (!team) {
+        throw new NotFoundException('Team not found in this session');
+      }
+    }
+
+    // Update participant's team assignment
+    await this.prisma.participant.update({
+      where: { id: participantId },
+      data: { teamId },
+    });
+    
+    return { success: true };
   }
 
   async ensureSession(sessionId: string) {

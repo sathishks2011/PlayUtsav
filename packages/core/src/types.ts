@@ -61,3 +61,11 @@ export type QuizState = {
   createdAt: string;
   answers: Array<{ participantId: string; answer: number; displayName: string }>;
 };
+
+export type ScoreAnimationEvent = {
+  teamId: string;
+  points: number;
+  isBonus: boolean;
+  timestamp: number;
+  reason?: string;
+};

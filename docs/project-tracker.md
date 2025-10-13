@@ -55,10 +55,12 @@
   - Theme Studio + locale lab ✅
   - Persist quiz rounds/history 🔄
   - TV scoreboard & quiz view 🔄
+  - **Deferred to Sprint 3**: Configurable scoring system (points per game, bonuses).
 - **Sprint 3 – TV Experience & Offline**
   - DPAD-friendly flows, TV join UX, screen saver mode.
   - Local-only backend bundle (Docker/Tauri) with SQLite.
   - Session analytics telemetry + dashboards.
+  - Configurable scoring system (points per game, bonuses).
 - **Sprint 4 – Marketplace & Advanced Games**
   - Template marketplace spec + signing/verification pipeline.
   - Additional game engines (music match, sudoku, bingo).

@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Session } from '@pkg/core';
-import { addTeam, createSession, joinSession } from '../../lib/api';
+import { addTeam, createSession, joinSession, removeParticipant, assignParticipantToTeam } from '../../lib/api';
 
 type Role = 'HOST' | 'PLAYER' | null;
 
@@ -41,13 +41,44 @@ export const addTeamThunk = createAsyncThunk(
   }
 );
 
+export const removeParticipantThunk = createAsyncThunk(
+  'session/removeParticipant',
+  async (payload: { sessionId: string; participantId: string }) => {
+    await removeParticipant(payload.sessionId, payload.participantId);
+    return payload.participantId;
+  }
+);
+
+export const assignParticipantToTeamThunk = createAsyncThunk(
+  'session/assignParticipantToTeam',
+  async (payload: { sessionId: string; participantId: string; teamId: string | null }) => {
+    await assignParticipantToTeam(payload.sessionId, payload.participantId, payload.teamId);
+    return payload;
+  }
+);
+
 const sessionSlice = createSlice({
   name: 'session',
   initialState,
   reducers: {
-    reset: () => initialState,
+    reset: () => {
+      // Clear player session from localStorage
+      localStorage.removeItem('playerSession');
+      return initialState;
+    },
     setSnapshot(state, action: PayloadAction<Session>) {
       state.current = action.payload;
+      state.status = 'ready';
+    },
+    setHostSession(state, action: PayloadAction<Session>) {
+      state.current = action.payload;
+      state.role = 'HOST';
+      state.status = 'ready';
+    },
+    setPlayerSession(state, action: PayloadAction<{ session: Session; participantId: string }>) {
+      state.current = action.payload.session;
+      state.participantId = action.payload.participantId;
+      state.role = 'PLAYER';
       state.status = 'ready';
     },
     setError(state, action: PayloadAction<string | undefined>) {
@@ -79,6 +110,14 @@ const sessionSlice = createSlice({
         state.participantId = action.payload.participantId;
         state.role = 'PLAYER';
         state.status = 'ready';
+        
+        // Persist player session to localStorage
+        localStorage.setItem('playerSession', JSON.stringify({
+          sessionId: action.payload.session.id,
+          participantId: action.payload.participantId,
+          displayName: action.payload.session.participants.find(p => p.id === action.payload.participantId)?.displayName,
+          timestamp: Date.now()
+        }));
       })
       .addCase(joinSessionThunk.rejected, (state, action) => {
         state.status = 'error';
@@ -91,5 +130,5 @@ const sessionSlice = createSlice({
   },
 });
 
-export const { reset: resetSession, setSnapshot, setError } = sessionSlice.actions;
+export const { reset: resetSession, setSnapshot, setHostSession, setPlayerSession, setError } = sessionSlice.actions;
 export default sessionSlice.reducer;

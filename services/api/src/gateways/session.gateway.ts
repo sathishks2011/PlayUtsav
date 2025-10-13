@@ -46,7 +46,14 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
   }
 
   async emitQuizUpdate(sessionId: string, state: unknown) {
-    this.server.to(this.room(sessionId)).emit('quiz:update', state);
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting quiz:update to room: ${roomName}`);
+    this.logger.log(`[SessionGateway] Quiz state:`, JSON.stringify(state, null, 2));
+    this.server.to(roomName).emit('quiz:update', state);
+  }
+
+  async emitToSession(sessionId: string, event: string, data: unknown) {
+    this.server.to(this.room(sessionId)).emit(event, data);
   }
 
   private room(sessionId: string) {

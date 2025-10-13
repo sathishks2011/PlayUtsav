@@ -1,8 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { startQuizThunk, revealQuizThunk } from '../store/slices/quizSlice';
+import { startQuizThunk, revealQuizThunk, submitQuizAnswerThunk } from '../store/slices/quizSlice';
 import type { RootState } from '../store/store';
+import { getSessionSocket } from '../lib/socket';
 
 const SAMPLE_QUESTIONS = [
   {
@@ -21,14 +22,29 @@ const SAMPLE_QUESTIONS = [
   },
 ];
 
-export function HostQuizPanel() {
+interface HostQuizPanelProps {
+  showHostControls?: boolean;
+  allowPlayerInput?: boolean;
+}
+
+export function HostQuizPanel({ showHostControls = true, allowPlayerInput = false }: HostQuizPanelProps) {
   const dispatch = useAppDispatch();
   const intl = useIntl();
   const session = useAppSelector((s: RootState) => s.session.current);
   const quizState = useAppSelector((s: RootState) => s.quiz.current);
   const loading = useAppSelector((s: RootState) => s.quiz.loading);
+  const autoRevealEnabled = useAppSelector((s: RootState) => s.settings.reveal.autoRevealEnabled);
+  const autoRevealTimeout = useAppSelector((s: RootState) => s.settings.reveal.autoRevealTimeout);
+  const participantId = useAppSelector((s: RootState) => s.session.participantId);
+  const sessionId = useAppSelector((s: RootState) => s.session.current?.id);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [allAnswered, setAllAnswered] = useState(false);
+  const [autoRevealTimer, setAutoRevealTimer] = useState<number | null>(null);
+  
+  // Player input state (only used when allowPlayerInput is true)
+  const [selected, setSelected] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const question = useMemo(() => SAMPLE_QUESTIONS[questionIndex % SAMPLE_QUESTIONS.length], [questionIndex]);
 
@@ -47,7 +63,113 @@ export function HostQuizPanel() {
     return () => window.clearInterval(timer);
   }, [quizState?.questionId, quizState?.createdAt, quizState?.duration]);
 
+  // Reset allAnswered state when quiz changes
+  useEffect(() => {
+    if (quizState?.status === 'running') {
+      console.log('[HostQuizPanel] Quiz running, resetting allAnswered state');
+      setAllAnswered(false);
+      setAutoRevealTimer(null);
+    } else if (quizState?.status === 'revealed') {
+      console.log('[HostQuizPanel] Quiz revealed, resetting allAnswered state');
+      setAllAnswered(false);
+      setAutoRevealTimer(null);
+    }
+  }, [quizState?.questionId, quizState?.status]);
+
+  // Auto-reveal countdown when all players have answered
+  useEffect(() => {
+    console.log('[HostQuizPanel] Auto-reveal effect triggered', {
+      autoRevealEnabled,
+      allAnswered,
+      quizStatus: quizState?.status,
+      sessionId: session?.id,
+    });
+
+    if (!autoRevealEnabled || !allAnswered || !quizState || quizState.status !== 'running' || !session) {
+      return;
+    }
+
+    console.log('[HostQuizPanel] Starting auto-reveal countdown:', autoRevealTimeout, 'seconds');
+    setAutoRevealTimer(autoRevealTimeout);
+    
+    const countdown = window.setInterval(() => {
+      setAutoRevealTimer((prev) => {
+        if (prev === null || prev <= 1) {
+          // Time's up, trigger auto-reveal
+          clearInterval(countdown);
+          
+          // Trigger reveal with current quiz state
+          const awards = session.teams
+            .filter((team) =>
+              team.participants.some((p) =>
+                quizState.answers.some((ans) => ans.participantId === p.id && ans.answer === question.correct)
+              )
+            )
+            .map((team) => ({ teamId: team.id, delta: 10, reason: 'quiz-correct' }));
+
+          dispatch(
+            revealQuizThunk({
+              sessionId: session.id,
+              correctOption: question.correct,
+              awards: awards.length ? awards : undefined,
+            })
+          );
+          
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(countdown);
+    };
+  }, [allAnswered, autoRevealEnabled, autoRevealTimeout, quizState?.status, quizState?.answers, session, question, dispatch]);
+
+  // Listen for 'quiz:all-answered' WebSocket event
+  useEffect(() => {
+    if (!session?.id) return;
+
+    let socketRef: Awaited<ReturnType<typeof getSessionSocket>> | null = null;
+
+    const handler = (data: unknown) => {
+      console.log('[HostQuizPanel] Received quiz:all-answered event', data);
+      setAllAnswered(true);
+    };
+
+    getSessionSocket()
+      .then((s) => {
+        socketRef = s;
+        s.on('quiz:all-answered', handler);
+        console.log('[HostQuizPanel] Subscribed to quiz:all-answered events');
+      })
+      .catch((err) => {
+        console.error('Failed to setup quiz:all-answered listener:', err);
+      });
+
+    return () => {
+      if (socketRef) {
+        socketRef.off('quiz:all-answered', handler);
+      }
+    };
+  }, [session?.id]);
+
+  // Reset player input state when question changes (for allowPlayerInput mode)
+  useEffect(() => {
+    if (!allowPlayerInput || !quizState) return;
+    setSelected(null);
+    setSubmitted(false);
+  }, [quizState?.questionId, quizState?.status, allowPlayerInput]);
+
   if (!session) return null;
+
+  // Player submit handler (only used when allowPlayerInput is true)
+  const handlePlayerSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!allowPlayerInput || selected == null || quizState?.status !== 'running' || !sessionId || !participantId) return;
+    dispatch(submitQuizAnswerThunk({ sessionId, participantId, answer: selected }));
+    setSubmitted(true);
+  };
 
   const handleStart = () => {
     if (loading || (quizState && quizState.status === 'running')) return;
@@ -81,6 +203,32 @@ export function HostQuizPanel() {
     );
   };
 
+  const handleNextQuestion = () => {
+    if (!session || loading) return;
+    
+    // Increment question index
+    const newIndex = questionIndex + 1;
+    setQuestionIndex(newIndex);
+    
+    // Get the new question
+    const newQuestion = SAMPLE_QUESTIONS[newIndex % SAMPLE_QUESTIONS.length];
+    
+    // Reset local state
+    setAllAnswered(false);
+    setAutoRevealTimer(null);
+    
+    // Automatically start the new question
+    dispatch(
+      startQuizThunk({
+        sessionId: session.id,
+        questionId: newQuestion.questionId,
+        prompt: newQuestion.prompt,
+        options: newQuestion.options,
+        duration: newQuestion.duration,
+      })
+    );
+  };
+
   const revealed = quizState?.status === 'revealed';
   const running = quizState?.status === 'running';
   const progress = (() => {
@@ -89,7 +237,7 @@ export function HostQuizPanel() {
   })();
 
   return (
-    <div className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
+    <div id="quiz-panel" className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-xl font-semibold">
@@ -109,24 +257,39 @@ export function HostQuizPanel() {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
-            onClick={handleStart}
-            disabled={loading || running}
-          >
-            <FormattedMessage id="hostQuiz.start" defaultMessage="Start question" />
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 rounded border border-white/20"
-            onClick={() => setQuestionIndex((idx) => idx + 1)}
-            disabled={loading}
-          >
-            <FormattedMessage id="hostQuiz.nextQuestion" defaultMessage="Next question" />
-          </button>
-        </div>
+        {showHostControls && (
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
+              onClick={handleStart}
+              disabled={loading || running}
+            >
+              <FormattedMessage id="hostQuiz.start" defaultMessage="Start question" />
+            </button>
+            <button
+              type="button"
+              className="px-4 py-2 rounded border border-white/20"
+              onClick={handleNextQuestion}
+              disabled={loading || running}
+            >
+              <FormattedMessage id="hostQuiz.nextQuestion" defaultMessage="Next question" />
+            </button>
+            {/* Debug button to test auto-reveal */}
+            {running && autoRevealEnabled && (
+              <button
+                type="button"
+                className="px-4 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs"
+                onClick={() => {
+                  console.log('[DEBUG] Manually triggering allAnswered state');
+                  setAllAnswered(true);
+                }}
+              >
+                [DEBUG] Trigger Auto-Reveal
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {quizState && (
@@ -151,31 +314,98 @@ export function HostQuizPanel() {
             <div className="timer-bar">
               <span style={{ transform: `scaleX(${progress})` }} />
             </div>
-            <ol className="mt-3 space-y-2">
-              {quizState.options.map((option, idx) => (
-                <li
-                  key={option}
-                  className={`rounded border border-white/10 px-3 py-2 flex justify-between items-center ${
-                    revealed && idx === quizState.correctOption ? 'bg-emerald-500/20 border-emerald-400/40' : 'bg-black/20'
-                  }`}
-                >
-                  <span>{option}</span>
-                  {revealed && idx === quizState.correctOption && (
-                    <span className="text-xs uppercase tracking-[0.2em] text-emerald-200">
-                      <FormattedMessage id="hostQuiz.correct" defaultMessage="Correct" />
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ol>
+            {allowPlayerInput ? (
+              <form onSubmit={handlePlayerSubmit} className="mt-3 space-y-3">
+                {quizState.options.map((option, idx) => (
+                  <label
+                    key={option}
+                    className={`flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 cursor-pointer ${
+                      revealed && idx === quizState.correctOption
+                        ? 'bg-emerald-500/20 border-emerald-400/40'
+                        : 'bg-black/20'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="player-answer"
+                      value={idx}
+                      checked={selected === idx}
+                      onChange={() => setSelected(idx)}
+                      disabled={revealed || submitted}
+                      className="cursor-pointer"
+                    />
+                    <span className="flex-1">{option}</span>
+                    {revealed && idx === quizState.correctOption && (
+                      <span className="text-xs uppercase tracking-[0.2em] text-emerald-200">
+                        <FormattedMessage id="hostQuiz.correct" defaultMessage="Correct" />
+                      </span>
+                    )}
+                  </label>
+                ))}
+                {!submitted && !revealed && (
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50 w-full"
+                    disabled={selected == null || quizState.status !== 'running'}
+                  >
+                    <FormattedMessage id="playerQuiz.submit" defaultMessage="Submit answer" />
+                  </button>
+                )}
+                {submitted && !revealed && (
+                  <div className="px-4 py-3 rounded bg-emerald-500/20 border border-emerald-400/40 text-sm text-emerald-100">
+                    <FormattedMessage
+                      id="playerQuiz.waitingForOthers"
+                      defaultMessage="Answer submitted! Waiting for others..."
+                    />
+                  </div>
+                )}
+              </form>
+            ) : (
+              <ol className="mt-3 space-y-2">
+                {quizState.options.map((option, idx) => (
+                  <li
+                    key={option}
+                    className={`rounded border border-white/10 px-3 py-2 flex justify-between items-center ${
+                      revealed && idx === quizState.correctOption ? 'bg-emerald-500/20 border-emerald-400/40' : 'bg-black/20'
+                    }`}
+                  >
+                    <span>{option}</span>
+                    {revealed && idx === quizState.correctOption && (
+                      <span className="text-xs uppercase tracking-[0.2em] text-emerald-200">
+                        <FormattedMessage id="hostQuiz.correct" defaultMessage="Correct" />
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            )}
           </div>
 
           <div className="rounded-lg bg-black/30 border border-white/10 p-3 text-sm">
-            <FormattedMessage
-              id="hostQuiz.answers"
-              defaultMessage="{count} answers received"
-              values={{ count: quizState.answers.length }}
-            />
+            <div className="flex items-center justify-between">
+              <FormattedMessage
+                id="hostQuiz.answers"
+                defaultMessage="{count} answers received"
+                values={{ count: quizState.answers.length }}
+              />
+              {allAnswered && autoRevealTimer !== null && running && (
+                <span className="text-xs uppercase tracking-[0.2em] text-amber-300 animate-pulse">
+                  <FormattedMessage
+                    id="hostQuiz.autoReveal"
+                    defaultMessage="Auto-reveal in {seconds}s"
+                    values={{ seconds: autoRevealTimer }}
+                  />
+                </span>
+              )}
+              {allAnswered && !autoRevealEnabled && running && (
+                <span className="text-xs uppercase tracking-[0.2em] text-emerald-300">
+                  <FormattedMessage
+                    id="hostQuiz.allAnswered"
+                    defaultMessage="All players answered!"
+                  />
+                </span>
+              )}
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {quizState.answers.map((answer) => (
                 <span key={answer.participantId} className="px-2 py-1 rounded bg-white/10 text-xs uppercase tracking-[0.15em]">
@@ -190,16 +420,28 @@ export function HostQuizPanel() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              type="button"
-              className="px-4 py-2 rounded bg-white/10"
-              onClick={handleReveal}
-              disabled={revealed}
-            >
-              <FormattedMessage id="hostQuiz.reveal" defaultMessage="Reveal & award" />
-            </button>
-          </div>
+          {showHostControls && (
+            <div className="flex gap-2">
+              {allAnswered && autoRevealEnabled && running && (
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200"
+                  onClick={handleReveal}
+                  disabled={revealed}
+                >
+                  <FormattedMessage id="hostQuiz.revealNow" defaultMessage="Reveal Now" />
+                </button>
+              )}
+              <button
+                type="button"
+                className="px-4 py-2 rounded bg-white/10"
+                onClick={handleReveal}
+                disabled={revealed}
+              >
+                <FormattedMessage id="hostQuiz.reveal" defaultMessage="Reveal & award" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

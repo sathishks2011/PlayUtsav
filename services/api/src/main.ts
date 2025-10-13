@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import * as path from 'node:path';
 import { config as loadEnv } from 'dotenv';
+import cookieParser from 'cookie-parser';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './modules/app.module';
@@ -8,7 +9,17 @@ import { AppModule } from './modules/app.module';
 loadEnv({ path: path.join(__dirname, '../.env') });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, {
+    cors: {
+      origin: 'http://localhost:5173',
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+    },
+  });
+
+  // Enable cookie parsing for JWT tokens
+  app.use(cookieParser());
 
   const config = new DocumentBuilder()
     .setTitle('PlayUtsav API')

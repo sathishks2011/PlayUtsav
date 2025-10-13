@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { Team } from '@pkg/core';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { addTeamThunk } from '../store/slices/sessionSlice';
+import { addTeamThunk, removeParticipantThunk, resetSession, assignParticipantToTeamThunk } from '../store/slices/sessionSlice';
 import { HostQuizPanel } from '../components/HostQuizPanel';
 import { ThemeStudioPanel } from '../components/ThemeStudioPanel';
 import { computeTeamScores } from '@pkg/core';
@@ -59,6 +59,16 @@ export function HostLobby() {
   const lobbyParticipants = session.participants.filter((p) => p.role !== 'HOST');
   const scores = computeTeamScores(session);
 
+  const handleRemoveParticipant = (participantId: string, displayName: string) => {
+    if (confirm(`Remove ${displayName} from the session?`)) {
+      dispatch(removeParticipantThunk({ sessionId: session.id, participantId }));
+    }
+  };
+
+  const handleAssignToTeam = (participantId: string, teamId: string | null) => {
+    dispatch(assignParticipantToTeamThunk({ sessionId: session.id, participantId, teamId }));
+  };
+
   return (
     <div className="w-full max-w-5xl space-y-6">
       <header className="rounded-xl bg-white/10 backdrop-blur p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -71,6 +81,12 @@ export function HostLobby() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => dispatch(resetSession())}
+            className="px-4 py-2 rounded border border-white/20 text-white hover:bg-white/10 transition"
+          >
+            <FormattedMessage id="hostLobby.backToDashboard" defaultMessage="← Dashboard" />
+          </button>
           <button className="px-4 py-2 rounded bg-[var(--color-primary)] text-white" onClick={copyCode}>
             <FormattedMessage id="hostLobby.copy" defaultMessage="Copy" />
           </button>
@@ -91,8 +107,32 @@ export function HostLobby() {
           </h3>
           <ul className="space-y-2 max-h-56 overflow-auto pr-2">
             {lobbyParticipants.map((p) => (
-              <li key={p.id} className="rounded bg-white/10 px-3 py-2">
-                {p.displayName}
+              <li key={p.id} className="rounded bg-white/10 px-3 py-2 flex items-center justify-between gap-2">
+                <span className="flex-shrink-0">{p.displayName}</span>
+                <div className="flex items-center gap-2 flex-1 justify-end">
+                  <select
+                    value={p.teamId ?? ''}
+                    onChange={(e) => handleAssignToTeam(p.id, e.target.value || null)}
+                    className="text-sm px-2 py-1 rounded border border-white/20 bg-black/30 min-w-[120px]"
+                    title={`Assign ${p.displayName} to team`}
+                  >
+                    <option value="">
+                      {intl.formatMessage({ id: 'hostLobby.noTeam', defaultMessage: 'No team' })}
+                    </option>
+                    {session.teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleRemoveParticipant(p.id, p.displayName)}
+                    className="px-2 py-1 text-xs border border-red-400/50 text-red-300 rounded hover:bg-red-500/20 transition"
+                    title={`Remove ${p.displayName}`}
+                  >
+                    ✕
+                  </button>
+                </div>
               </li>
             ))}
             {lobbyParticipants.length === 0 && (
@@ -148,7 +188,7 @@ export function HostLobby() {
       </section>
 
       {scores.length > 0 && (
-        <section className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
+        <section id="host-scoreboard" className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
           <h3 className="text-xl font-semibold">
             <FormattedMessage id="hostLobby.scoreboard" defaultMessage="Scoreboard" />
           </h3>
@@ -159,7 +199,7 @@ export function HostLobby() {
                   <span className="font-semibold" style={{ color: team.color ?? 'var(--color-primary)' }}>
                     {team.name}
                   </span>
-                  <span className="text-xl font-bold">{total}</span>
+                  <span id={`team-score-${team.id}`} className="text-xl font-bold">{total}</span>
                 </div>
                 {streak > 0 && (
                   <div className="text-xs uppercase tracking-[0.2em] text-emerald-200 mt-2">

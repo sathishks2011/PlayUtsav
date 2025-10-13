@@ -122,6 +122,40 @@ export class QuizService {
     return this.fetchActiveRound(sessionId);
   }
 
+  /**
+   * Check if all players in the session have answered the current quiz
+   */
+  async checkAllPlayersAnswered(sessionId: string): Promise<boolean> {
+    const round = await this.prisma.quizRound.findFirst({
+      where: { sessionId, status: 'running' },
+      orderBy: { createdAt: 'desc' },
+      include: { answers: true },
+    });
+    
+    if (!round) {
+      console.log(`[QuizService] No running quiz round found for session ${sessionId}`);
+      return false;
+    }
+
+    // Get all PLAYER participants in the session (exclude HOST who doesn't answer)
+    const participants = await this.prisma.participant.findMany({
+      where: { 
+        sessionId,
+        role: 'PLAYER'
+      },
+    });
+
+    // Check if all participants have submitted answers
+    const answeredParticipantIds = new Set(round.answers.map((a: { participantId: string }) => a.participantId));
+    const allAnswered = participants.every((p) => answeredParticipantIds.has(p.id));
+    
+    console.log(`[QuizService] Session ${sessionId}: ${participants.length} participants, ${round.answers.length} answers, all answered: ${allAnswered}`);
+    console.log(`[QuizService] Participants:`, participants.map(p => ({ id: p.id, name: p.displayName })));
+    console.log(`[QuizService] Answered IDs:`, Array.from(answeredParticipantIds));
+    
+    return allAnswered;
+  }
+
   async reveal(
     sessionId: string,
     payload: { correctOption: number | null; awards?: { teamId: string; delta: number; reason?: string }[] }

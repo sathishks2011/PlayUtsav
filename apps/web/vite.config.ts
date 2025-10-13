@@ -29,9 +29,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: [
-      { find: '@pkg/core/styles', replacement: resolve(__dirname, '../../packages/core/styles') },
-      { find: '@pkg/core', replacement: resolve(__dirname, '../../packages/core/src') },
-      { find: '@pkg/ui', replacement: resolve(__dirname, '../../packages/ui/src') },
+      { find: /^@pkg\/core\/styles/, replacement: resolve(__dirname, '../../packages/core/styles') },
+      { find: /^@pkg\/core/, replacement: resolve(__dirname, '../../packages/core/src') },
+      { find: /^@pkg\/ui/, replacement: resolve(__dirname, '../../packages/ui/src') },
     ],
   },
 });

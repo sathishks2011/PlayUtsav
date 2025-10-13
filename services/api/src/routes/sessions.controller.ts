@@ -28,6 +28,15 @@ export class SessionsController {
     return this.sessions.list();
   }
 
+  @Get('/:id')
+  async getById(@Param('id') id: string) {
+    const session = await this.sessions.getSnapshot(id);
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+    return session;
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HOST', 'ADMIN')
@@ -68,5 +77,38 @@ export class SessionsController {
     const session = await this.sessions.updateStatus(id, parsed.data.status);
     await this.gateway.emitSessionUpdate(id);
     return session;
+  }
+
+  @Post(':id/participants/:participantId/remove')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async removeParticipant(
+    @Param('id') sessionId: string,
+    @Param('participantId') participantId: string,
+  ) {
+    const result = await this.sessions.removeParticipant(sessionId, participantId);
+    
+    // Emit updated session to all subscribers
+    const updatedSession = await this.sessions.getSnapshot(sessionId);
+    this.gateway.emitToSession(sessionId, 'participant:removed', { participantId });
+    this.gateway.emitSessionUpdate(sessionId);
+    
+    return result;
+  }
+
+  @Post(':id/participants/:participantId/assign')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async assignParticipantToTeam(
+    @Param('id') sessionId: string,
+    @Param('participantId') participantId: string,
+    @Body('teamId') teamId: string | null,
+  ) {
+    const result = await this.sessions.assignParticipantToTeam(sessionId, participantId, teamId);
+    
+    // Emit updated session to all subscribers
+    this.gateway.emitSessionUpdate(sessionId);
+    
+    return result;
   }
 }

@@ -2,7 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutThunk } from '../store/slices/authSlice';
-import { createSessionThunk } from '../store/slices/sessionSlice';
+import { createSessionThunk, setHostSession } from '../store/slices/sessionSlice';
 import { listSessions } from '../lib/api';
 import type { Session } from '@pkg/core';
 
@@ -37,14 +37,15 @@ export function HostDashboard() {
   const handleCreateSession = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await dispatch(
+      const session = await dispatch(
         createSessionThunk({
           hostName: hostName || undefined,
           maxPlayers,
           language,
         })
       ).unwrap();
-      await loadSessions();
+      // Session is now in Redux state with role: 'HOST', will show HostLobby
+      console.log('Session created:', session.code);
     } catch (err) {
       console.error('Failed to create session:', err);
     }
@@ -187,10 +188,10 @@ export function HostDashboard() {
             {sessions.map((session) => (
               <div
                 key={session.id}
-                className="border border-[var(--fg)]/10 rounded p-4 hover:bg-[var(--fg)]/5 transition"
+                className="border border-[var(--fg)]/10 rounded p-4"
               >
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
                     <div className="font-medium text-lg">
                       <FormattedMessage
                         id="host.session.code"
@@ -210,9 +211,17 @@ export function HostDashboard() {
                       />
                     </div>
                   </div>
-                  <span className="text-xs px-2 py-1 rounded bg-[var(--accent)]/10 text-[var(--accent)]">
-                    {session.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded bg-[var(--accent)]/10 text-[var(--accent)]">
+                      {session.status}
+                    </span>
+                    <button
+                      onClick={() => dispatch(setHostSession(session))}
+                      className="px-4 py-2 text-sm bg-[var(--accent)] text-white rounded font-medium hover:opacity-90 transition"
+                    >
+                      <FormattedMessage id="host.session.manage" defaultMessage="Manage" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

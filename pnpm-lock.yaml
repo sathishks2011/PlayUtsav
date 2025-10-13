@@ -165,7 +165,7 @@ importers:
         specifier: ^0.14.1
         version: 0.14.2
       cookie-parser:
-        specifier: ^1.4.6
+        specifier: ^1.4.7
         version: 1.4.7
       dotenv:
         specifier: ^16.4.5
@@ -199,11 +199,17 @@ importers:
         specifier: ^5.0.2
         version: 5.0.2
       '@types/cookie-parser':
-        specifier: ^1.4.3
+        specifier: ^1.4.9
         version: 1.4.9(@types/express@5.0.3)
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.3
       '@types/jest':
         specifier: ^29.5.12
         version: 29.5.14
+      '@types/node':
+        specifier: ^24.7.2
+        version: 24.7.2
       '@types/passport-jwt':
         specifier: ^3.0.9
         version: 3.0.13

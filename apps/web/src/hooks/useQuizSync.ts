@@ -15,10 +15,14 @@ export function useQuizSync() {
       return () => {};
     }
 
+    console.log('[useQuizSync] Setting up quiz sync for session:', sessionId);
+    
     getSessionSocket()
       .then((socket) => {
         if (!active) return;
+        console.log('[useQuizSync] Socket obtained, subscribing to quiz updates');
         socket.onQuiz(sessionId, (state) => {
+          console.log('[useQuizSync] Received quiz:update event:', state);
           dispatch(setQuizState(state));
         });
       })

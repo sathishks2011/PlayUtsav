@@ -40,6 +40,19 @@ export function addTeam(sessionId: string, payload: { name: string; color?: stri
   });
 }
 
+export function removeParticipant(sessionId: string, participantId: string) {
+  return request<{ success: boolean }>(`/sessions/${sessionId}/participants/${participantId}/remove`, {
+    method: 'POST',
+  });
+}
+
+export function assignParticipantToTeam(sessionId: string, participantId: string, teamId: string | null) {
+  return request<{ success: boolean }>(`/sessions/${sessionId}/participants/${participantId}/assign`, {
+    method: 'POST',
+    body: JSON.stringify({ teamId }),
+  });
+}
+
 export function startQuiz(
   sessionId: string,
   payload: { questionId: string; prompt: string; options: string[]; duration?: number }
