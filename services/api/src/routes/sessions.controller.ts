@@ -11,6 +11,7 @@ const CreateSessionDto = z.object({
   hostName: z.string().min(2).max(60).optional(),
   maxPlayers: z.number().int().min(2).max(32).optional(),
   language: z.string().min(2).max(8).optional(),
+  playerEngagementType: z.enum(['CHOICE_ANSWER', 'BUZZER', 'VOICE_ANSWER']).optional(),
 });
 
 const JoinSessionDto = z.object({ code: z.string().length(4), displayName: z.string().min(2).max(60) });
@@ -110,5 +111,50 @@ export class SessionsController {
     this.gateway.emitSessionUpdate(sessionId);
     
     return result;
+  }
+
+  @Get(':id/scores')
+  async getScores(@Param('id') sessionId: string) {
+    const session = await this.sessions.getSnapshot(sessionId);
+    if (!session) {
+      throw new BadRequestException('Session not found');
+    }
+
+    // Aggregate scores by participant/team
+    const scores = session.scores || [];
+    const participants = session.participants || [];
+    
+    // Calculate total score for each participant
+    const participantScores = new Map<string, number>();
+    const teamScores = new Map<string, number>();
+    
+    scores.forEach(score => {
+      if (score.teamId) {
+        const current = teamScores.get(score.teamId) || 0;
+        teamScores.set(score.teamId, current + score.value);
+      }
+    });
+    
+    // For individual players (not on teams), we need to check if scoring records exist per participant
+    // For now, we'll use team-based scoring as that's what the scoring system tracks
+    
+    const players = participants.map(p => {
+      const teamScore = p.teamId ? (teamScores.get(p.teamId) || 0) : 0;
+      return {
+        id: p.id,
+        participantId: p.id,
+        name: p.displayName,
+        playerName: p.displayName,
+        totalScore: teamScore,
+        score: teamScore,
+        teamId: p.teamId || null,
+      };
+    });
+
+    return {
+      sessionId: session.id,
+      players,
+      teams: session.teams || [],
+    };
   }
 }

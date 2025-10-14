@@ -23,6 +23,14 @@ const revealSchema = z.object({
   correctOption: z.number().int().nullable().default(null),
 });
 
+const buzzerPressSchema = z.object({
+  participantId: z.string().min(1),
+});
+
+const buzzerOverrideSchema = z.object({
+  participantId: z.string().min(1),
+});
+
 @Controller('/sessions/:sessionId/quiz')
 export class QuizController {
   constructor(
@@ -72,6 +80,9 @@ export class QuizController {
     const quizState = await this.quiz.reveal(sessionId, parsed.data);
     await this.gateway.emitQuizUpdate(sessionId, quizState);
     
+    // Emit buzzer reset event so frontend clears the buzzer UI for next round
+    await this.gateway.emitBuzzerReset(sessionId);
+    
     // TODO: In the future, we could fetch the scoring results from the reveal
     // and emit individual score:animated events for each player's score change
     // For now, we'll just trigger a session update so the frontend can fetch the latest scores
@@ -92,5 +103,98 @@ export class QuizController {
   async checkAllAnswered(@Param('sessionId') sessionId: string) {
     const allAnswered = await this.quiz.checkAllPlayersAnswered(sessionId);
     return { allAnswered };
+  }
+
+  // Buzzer Mode Endpoints
+  @Post('buzzer/press')
+  async pressBuzzer(@Param('sessionId') sessionId: string, @Body() body: unknown) {
+    const parsed = buzzerPressSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const quizState = await this.quiz.pressBuzzer(sessionId, parsed.data.participantId);
+    
+    // Emit both general quiz update and specific buzzer pressed event
+    await this.gateway.emitQuizUpdate(sessionId, quizState);
+    if (quizState.buzzerState) {
+      const latestPress = quizState.buzzerState.buzzPresses[quizState.buzzerState.buzzPresses.length - 1];
+      if (latestPress) {
+        await this.gateway.emitBuzzerPressed(sessionId, latestPress, {
+          isOpen: quizState.buzzerState.isOpen,
+          buzzPresses: quizState.buzzerState.buzzPresses,
+          firstBuzzerId: quizState.buzzerState.firstBuzzerId,
+          lockedForParticipantId: quizState.buzzerState.lockedForParticipantId,
+        });
+      }
+    }
+    
+    return quizState;
+  }
+
+  @Post('buzzer/open')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async openBuzzer(@Param('sessionId') sessionId: string) {
+    const quizState = await this.quiz.openBuzzer(sessionId);
+    
+    // Emit both general quiz update and specific buzzer opened event
+    await this.gateway.emitQuizUpdate(sessionId, quizState);
+    if (quizState.buzzerState) {
+      await this.gateway.emitBuzzerOpened(sessionId, {
+        isOpen: quizState.buzzerState.isOpen,
+        buzzerOpenedAt: quizState.buzzerState.buzzerOpenedAt,
+        timerDuration: quizState.buzzerState.timerDuration,
+      });
+    }
+    
+    return quizState;
+  }
+
+  @Post('buzzer/close')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async closeBuzzer(@Param('sessionId') sessionId: string) {
+    const quizState = await this.quiz.closeBuzzer(sessionId);
+    
+    // Emit both general quiz update and specific buzzer closed event
+    await this.gateway.emitQuizUpdate(sessionId, quizState);
+    if (quizState.buzzerState) {
+      await this.gateway.emitBuzzerClosed(sessionId, {
+        isOpen: quizState.buzzerState.isOpen,
+        lockedForParticipantId: quizState.buzzerState.lockedForParticipantId,
+      });
+    }
+    
+    return quizState;
+  }
+
+  @Post('buzzer/reset')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async resetBuzzer(@Param('sessionId') sessionId: string) {
+    const quizState = await this.quiz.resetBuzzer(sessionId);
+    
+    // Emit both general quiz update and specific buzzer reset event
+    await this.gateway.emitQuizUpdate(sessionId, quizState);
+    await this.gateway.emitBuzzerReset(sessionId);
+    
+    return quizState;
+  }
+
+  @Post('buzzer/override')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HOST', 'ADMIN')
+  async overrideBuzzer(@Param('sessionId') sessionId: string, @Body() body: unknown) {
+    const parsed = buzzerOverrideSchema.safeParse(body);
+    if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
+    const quizState = await this.quiz.overrideBuzzerControl(sessionId, parsed.data.participantId);
+    
+    // Emit both general quiz update and specific buzzer override event
+    await this.gateway.emitQuizUpdate(sessionId, quizState);
+    if (quizState.buzzerState) {
+      await this.gateway.emitBuzzerOverride(sessionId, parsed.data.participantId, {
+        lockedForParticipantId: quizState.buzzerState.lockedForParticipantId,
+      });
+    }
+    
+    return quizState;
   }
 }

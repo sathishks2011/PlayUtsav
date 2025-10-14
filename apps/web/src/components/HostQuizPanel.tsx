@@ -184,8 +184,26 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     );
   };
 
-  const handleReveal = () => {
-    if (!quizState || !session) return;
+  const handleReveal = async () => {
+    console.log('[HostQuizPanel] ===== REVEAL BUTTON CLICKED =====');
+    console.log('[HostQuizPanel] showHostControls:', showHostControls);
+    console.log('[HostQuizPanel] Quiz state:', quizState);
+    console.log('[HostQuizPanel] Session:', session);
+    console.log('[HostQuizPanel] Question:', question);
+    
+    // Guard: Only allow reveal if host controls are enabled
+    if (!showHostControls) {
+      console.error('[HostQuizPanel] Cannot reveal - not a host session');
+      alert('Cannot reveal: This action is only available to hosts');
+      return;
+    }
+    
+    if (!quizState || !session) {
+      console.error('[HostQuizPanel] Cannot reveal - missing quizState or session');
+      alert('Cannot reveal: Missing quiz state or session');
+      return;
+    }
+    
     const awards = session.teams
       .filter((team) =>
         team.participants.some((p) =>
@@ -194,13 +212,45 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
       )
       .map((team) => ({ teamId: team.id, delta: 10, reason: 'quiz-correct' }));
 
-    dispatch(
-      revealQuizThunk({
+    console.log('[HostQuizPanel] Awards calculated:', awards);
+    console.log('[HostQuizPanel] Correct answer:', question.correct);
+    console.log('[HostQuizPanel] Dispatching reveal...');
+    
+    try {
+      console.log('[HostQuizPanel] Calling revealQuizThunk with:', {
         sessionId: session.id,
         correctOption: question.correct,
         awards: awards.length ? awards : undefined,
-      })
-    );
+      });
+      
+      const result = await dispatch(
+        revealQuizThunk({
+          sessionId: session.id,
+          correctOption: question.correct,
+          awards: awards.length ? awards : undefined,
+        })
+      ).unwrap();
+      
+      console.log('[HostQuizPanel] Reveal successful:', result);
+    } catch (error: any) {
+      console.error('[HostQuizPanel] Reveal failed - Full error:', error);
+      console.error('[HostQuizPanel] Error type:', typeof error);
+      console.error('[HostQuizPanel] Error keys:', error ? Object.keys(error) : 'N/A');
+      
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error && typeof error === 'object') {
+        // Try to extract meaningful error info
+        errorMessage = error.message || error.error || error.statusText || JSON.stringify(error, null, 2);
+      }
+      
+      console.error('[HostQuizPanel] Error message to display:', errorMessage);
+      alert(`Reveal failed:\n${errorMessage}\n\nCheck the console for more details.`);
+    }
   };
 
   const handleNextQuestion = () => {

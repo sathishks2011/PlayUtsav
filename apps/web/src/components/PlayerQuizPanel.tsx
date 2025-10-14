@@ -9,6 +9,7 @@ export function PlayerQuizPanel() {
   const quiz = useAppSelector((s) => s.quiz.current);
   const participantId = useAppSelector((s) => s.session.participantId);
   const sessionId = useAppSelector((s) => s.session.current?.id);
+  const session = useAppSelector((s) => s.session.current);
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -34,6 +35,16 @@ export function PlayerQuizPanel() {
   // Guard clause after all hooks
   if (!quiz || !sessionId || !participantId) return null;
 
+  // Buzzer mode: check if this player is locked out
+  const buzzerState = quiz.buzzerState;
+  const isBuzzerMode = session?.playerEngagementType === 'BUZZER';
+  const isLockedToMe = buzzerState?.lockedForParticipantId === participantId;
+  const isLockedToSomeoneElse = Boolean(buzzerState?.lockedForParticipantId) && !isLockedToMe;
+  
+  // In buzzer mode, can ONLY answer if explicitly locked to me
+  // In normal mode, can always answer
+  const canAnswer = isBuzzerMode ? isLockedToMe : true;
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (selected == null || quiz.status !== 'running' || !sessionId || !participantId) return;
@@ -48,10 +59,34 @@ export function PlayerQuizPanel() {
     return Math.max(Math.min(timeLeft / quiz.duration, 1), 0);
   })();
   
-  const disabled = selected == null || hasRevealed || submitted || quiz.status !== 'running';
+  const disabled = selected == null || hasRevealed || submitted || quiz.status !== 'running' || !canAnswer;
 
   return (
     <div className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
+      {isBuzzerMode && !buzzerState?.lockedForParticipantId && (
+        <div className="rounded border border-blue-400/40 bg-blue-500/10 px-4 py-2 text-center text-blue-200">
+          <FormattedMessage
+            id="playerQuiz.buzzerWaiting"
+            defaultMessage="🔒 Quiz locked. Press the buzzer and wait for host to allow you to answer."
+          />
+        </div>
+      )}
+      {isBuzzerMode && isLockedToSomeoneElse && (
+        <div className="rounded border border-amber-400/40 bg-amber-500/10 px-4 py-2 text-center text-amber-200">
+          <FormattedMessage
+            id="playerQuiz.buzzerLocked"
+            defaultMessage="Another player is answering. Wait for the next round."
+          />
+        </div>
+      )}
+      {isBuzzerMode && isLockedToMe && (
+        <div className="rounded border border-emerald-400/40 bg-emerald-500/10 px-4 py-2 text-center text-emerald-200">
+          <FormattedMessage
+            id="playerQuiz.buzzerYourTurn"
+            defaultMessage="✅ You buzzed first! Select your answer."
+          />
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h3 className="text-xl font-semibold">
           <FormattedMessage id="playerQuiz.title" defaultMessage="Quiz time" />
@@ -91,7 +126,7 @@ export function PlayerQuizPanel() {
               value={index}
               checked={selected === index}
               onChange={() => setSelected(index)}
-              disabled={hasRevealed}
+              disabled={hasRevealed || !canAnswer}
             />
             <span>{option}</span>
           </label>

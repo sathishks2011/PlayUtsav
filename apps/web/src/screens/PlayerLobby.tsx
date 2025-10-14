@@ -7,6 +7,9 @@ import { HostQuizPanel } from '../components/HostQuizPanel';
 import { ScoreboardPane } from '../components/ScoreboardPane';
 import { getSessionSocket } from '../lib/socket';
 import { useQuizSync } from '../hooks/useQuizSync';
+import { useBuzzerSync } from '../hooks/useBuzzerSync';
+import { PlayerBuzzerButton } from '../components/PlayerBuzzerButton';
+import { TeamNameBadge } from '../components/TeamNameBadge';
 
 export function PlayerLobby() {
   const dispatch = useAppDispatch();
@@ -17,6 +20,7 @@ export function PlayerLobby() {
 
   // Sync quiz state via WebSocket
   useQuizSync();
+  useBuzzerSync();
 
   // Listen for being removed by host
   useEffect(() => {
@@ -128,7 +132,9 @@ export function PlayerLobby() {
         </button>
       </header>
 
-      {/* Scoreboard at the top (above quiz panel) */}
+  {session.playerEngagementType === 'BUZZER' && <PlayerBuzzerButton />}
+
+  {/* Scoreboard at the top (above quiz panel) */}
       {scores.length > 0 && (
         <section id="player-scoreboard" className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
           <h3 className="text-xl font-semibold">
@@ -138,7 +144,7 @@ export function PlayerLobby() {
             {scores.map(({ team, total, streak }) => (
               <div key={team.id} className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <span style={{ color: team.color ?? 'var(--color-accent)' }}>{team.name}</span>
+                  <TeamNameBadge name={team.name} color={team.color} />
                   <span id={`team-score-${team.id}`} className="font-semibold text-lg">{total}</span>
                 </div>
                 {streak > 0 && (
@@ -184,9 +190,7 @@ export function PlayerLobby() {
             {teams.map((team) => (
               <div key={team.id} className="rounded-lg bg-white/10 p-4">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-semibold" style={{ color: team.color ?? 'var(--color-accent)' }}>
-                    {team.name}
-                  </h4>
+                  <TeamNameBadge name={team.name} color={team.color} className="font-semibold" />
                   <span className="text-xs opacity-70">
                     <FormattedMessage id="playerLobby.memberCount" defaultMessage="{count} members" values={{ count: team.participants.length }} />
                   </span>

@@ -19,7 +19,7 @@ const initialState: SessionState = {
 
 export const createSessionThunk = createAsyncThunk(
   'session/create',
-  async (payload: { hostName?: string; maxPlayers?: number; language?: string }) => {
+  async (payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) => {
     const session = await createSession(payload);
     return session;
   }

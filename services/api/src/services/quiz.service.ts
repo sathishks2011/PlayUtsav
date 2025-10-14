@@ -171,6 +171,32 @@ export class QuizService {
     });
     if (!round) throw new BadRequestException('No active quiz');
 
+    // Ensure scoring is initialized before revealing
+    // This is a safety check for sessions created before scoring was added
+    try {
+      await this.scoring['sessionScoringService'].getSessionEngine(sessionId);
+    } catch (error: any) {
+      if (error.message?.includes('Session scoring state not found')) {
+        console.warn('[QuizService] Scoring not initialized for session', sessionId, '- initializing now');
+        // Get session to find hostId
+        const session = await (this.prisma as any).session.findUnique({
+          where: { id: sessionId },
+        });
+        if (session && session.hostId) {
+          await this.scoring['sessionScoringService'].attachConfigToSession({
+            sessionId,
+            hostId: session.hostId,
+          });
+          console.log('[QuizService] Scoring initialized for session', sessionId);
+        } else {
+          console.error('[QuizService] Cannot initialize scoring - no hostId found for session', sessionId);
+          throw new BadRequestException('Cannot calculate scores - session has no host');
+        }
+      } else {
+        throw error;
+      }
+    }
+
     if (
       payload.correctOption != null &&
       (payload.correctOption < 0 || payload.correctOption >= round.options.length)
@@ -186,6 +212,16 @@ export class QuizService {
         correctOption: payload.correctOption,
       },
     });
+
+    // Auto-reset buzzer when quiz is revealed for next round
+    const buzzerState = this.buzzerStates.get(sessionId);
+    if (buzzerState) {
+      buzzerState.isOpen = false;
+      buzzerState.buzzPresses = [];
+      buzzerState.firstBuzzerId = null;
+      buzzerState.lockedForParticipantId = null;
+      buzzerState.buzzerOpenedAt = null;
+    }
 
     // Now, trigger scoring for all answers submitted for this round
     if (payload.correctOption !== null) {
@@ -219,6 +255,219 @@ export class QuizService {
   }
 
   async get(sessionId: string) {
-    return this.fetchActiveRound(sessionId);
+    const quizState = await this.fetchActiveRound(sessionId);
+    if (!quizState) return null;
+
+    // Check if session has buzzer mode enabled
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    }) as any;
+
+    // Include buzzer state if buzzer mode is enabled
+    if (session?.playerEngagementType === 'BUZZER') {
+      const buzzerState = this.buzzerStates.get(sessionId);
+      if (buzzerState) {
+        return {
+          ...quizState,
+          buzzerState,
+        };
+      }
+    }
+
+    return quizState;
+  }
+
+  // Buzzer Mode Methods
+  private buzzerStates = new Map<string, {
+    isOpen: boolean;
+    buzzPresses: Array<{
+      participantId: string;
+      participantName: string;
+      teamId: string | null;
+      teamName: string | null;
+      teamColor: string | null;
+      timestamp: string;
+    }>;
+    firstBuzzerId: string | null;
+    lockedForParticipantId: string | null;
+    buzzerOpenedAt: string | null;
+    timerDuration: number;
+  }>();
+
+  async pressBuzzer(sessionId: string, participantId: string) {
+    // Require active quiz for buzzer
+    const quizState = await this.get(sessionId);
+    if (!quizState || !quizState.questionId) {
+      throw new BadRequestException('No active quiz - start a quiz before using the buzzer');
+    }
+    
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    }) as any;
+    
+    if (session?.playerEngagementType !== 'BUZZER') {
+      throw new BadRequestException('Buzzer mode not enabled for this session');
+    }
+
+    let buzzerState = this.buzzerStates.get(sessionId);
+    if (!buzzerState || !buzzerState.isOpen) {
+      throw new BadRequestException('Buzzer is not open');
+    }
+
+    // Check if this participant already buzzed
+    const alreadyBuzzed = buzzerState.buzzPresses.some(bp => bp.participantId === participantId);
+    if (alreadyBuzzed) {
+      throw new BadRequestException('You already pressed the buzzer');
+    }
+
+    // Check if buzzer is locked for someone else
+    if (buzzerState.lockedForParticipantId && buzzerState.lockedForParticipantId !== participantId) {
+      throw new BadRequestException('Buzzer is locked for another participant');
+    }
+
+    // Get participant info with team
+    const participant = await this.prisma.participant.findUnique({
+      where: { id: participantId },
+      include: { team: true },
+    });
+
+    if (!participant || participant.sessionId !== sessionId) {
+      throw new NotFoundException('Participant not found in session');
+    }
+
+    // Add buzzer press
+    const buzzerPress = {
+      participantId: participant.id,
+      participantName: participant.displayName,
+      teamId: participant.teamId,
+      teamName: participant.team?.name || null,
+      teamColor: participant.team?.color || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    buzzerState.buzzPresses.push(buzzerPress);
+
+    // Lock buzzer for first press
+    if (!buzzerState.firstBuzzerId) {
+      buzzerState.firstBuzzerId = participantId;
+      buzzerState.lockedForParticipantId = participantId;
+      buzzerState.isOpen = false; // Close buzzer after first press
+    }
+
+    this.buzzerStates.set(sessionId, buzzerState);
+
+    // Return updated quiz state with buzzer state
+    return {
+      ...quizState,
+      buzzerState,
+    };
+  }
+
+  async openBuzzer(sessionId: string) {
+    // Require active quiz for buzzer
+    const quizState = await this.get(sessionId);
+    if (!quizState || !quizState.questionId) {
+      throw new BadRequestException('No active quiz - start a quiz before opening the buzzer');
+    }
+
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    }) as any;
+    
+    if (session?.playerEngagementType !== 'BUZZER') {
+      throw new BadRequestException('Buzzer mode not enabled for this session');
+    }
+
+    const buzzerState = this.buzzerStates.get(sessionId) || {
+      isOpen: false,
+      buzzPresses: [],
+      firstBuzzerId: null,
+      lockedForParticipantId: null,
+      buzzerOpenedAt: null,
+      timerDuration: 30,
+    };
+
+    buzzerState.isOpen = true;
+    buzzerState.buzzerOpenedAt = new Date().toISOString();
+    this.buzzerStates.set(sessionId, buzzerState);
+
+    // Auto-close after timer duration
+    setTimeout(() => {
+      const currentState = this.buzzerStates.get(sessionId);
+      if (currentState?.isOpen && currentState.buzzerOpenedAt === buzzerState.buzzerOpenedAt) {
+        currentState.isOpen = false;
+        this.buzzerStates.set(sessionId, currentState);
+      }
+    }, buzzerState.timerDuration * 1000);
+
+    return {
+      ...quizState,
+      buzzerState,
+    };
+  }
+
+  async closeBuzzer(sessionId: string) {
+    const quizState = await this.get(sessionId);
+
+    const buzzerState = this.buzzerStates.get(sessionId);
+    if (!buzzerState) {
+      throw new BadRequestException('Buzzer state not found');
+    }
+
+    buzzerState.isOpen = false;
+    this.buzzerStates.set(sessionId, buzzerState);
+
+    return {
+      ...quizState,
+      buzzerState,
+    };
+  }
+
+  async resetBuzzer(sessionId: string) {
+    const quizState = await this.get(sessionId);
+
+    const buzzerState = {
+      isOpen: false,
+      buzzPresses: [],
+      firstBuzzerId: null,
+      lockedForParticipantId: null,
+      buzzerOpenedAt: null,
+      timerDuration: 30,
+    };
+
+    this.buzzerStates.set(sessionId, buzzerState);
+
+    return {
+      ...quizState,
+      buzzerState,
+    };
+  }
+
+  async overrideBuzzerControl(sessionId: string, participantId: string) {
+    const quizState = await this.get(sessionId);
+
+    const buzzerState = this.buzzerStates.get(sessionId);
+    if (!buzzerState) {
+      throw new BadRequestException('Buzzer state not found');
+    }
+
+    // Verify participant exists in session
+    const participant = await this.prisma.participant.findUnique({
+      where: { id: participantId },
+    });
+
+    if (!participant || participant.sessionId !== sessionId) {
+      throw new NotFoundException('Participant not found in session');
+    }
+
+    // Override lock to this participant
+    buzzerState.lockedForParticipantId = participantId;
+    buzzerState.isOpen = false; // Close buzzer when overriding
+    this.buzzerStates.set(sessionId, buzzerState);
+
+    return {
+      ...quizState,
+      buzzerState,
+    };
   }
 }

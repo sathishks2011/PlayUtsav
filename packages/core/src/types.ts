@@ -31,6 +31,26 @@ export type Score = {
 
 export type SessionStatus = 'LOBBY' | 'ACTIVE' | 'ENDED';
 
+export type PlayerEngagementType = 'CHOICE_ANSWER' | 'BUZZER' | 'VOICE_ANSWER';
+
+export type BuzzerPress = {
+  participantId: string;
+  participantName: string;
+  teamId: string | null;
+  teamName: string | null;
+  teamColor: string | null;
+  timestamp: string;
+};
+
+export type BuzzerState = {
+  isOpen: boolean; // Can players buzz now?
+  buzzPresses: BuzzerPress[]; // All buzzer presses in order
+  firstBuzzerId?: string; // ID of first buzzer
+  lockedForParticipantId?: string | null; // Who has control to answer (null = anyone can buzz)
+  buzzerOpenedAt?: string; // When buzzer was opened
+  timerDuration: number; // Buzzer timer in seconds (default 30)
+};
+
 export type Session = {
   id: string;
   code: string;
@@ -38,6 +58,7 @@ export type Session = {
   hostName?: string | null;
   maxPlayers: number;
   language: string;
+  playerEngagementType: PlayerEngagementType;
   createdAt: string;
   updatedAt: string;
   teams: Team[];
@@ -60,6 +81,7 @@ export type QuizState = {
   duration: number;
   createdAt: string;
   answers: Array<{ participantId: string; answer: number; displayName: string }>;
+  buzzerState?: BuzzerState; // Only present when playerEngagementType is BUZZER
 };
 
 export type ScoreAnimationEvent = {

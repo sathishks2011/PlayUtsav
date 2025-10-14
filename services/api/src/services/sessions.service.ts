@@ -31,7 +31,7 @@ export class SessionsService {
     });
   }
 
-  async create(input: { hostName?: string; maxPlayers?: number; language?: string; hostId?: string }) {
+  async create(input: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string; hostId?: string }) {
     const code = await this.generateUniqueCode();
     const session = await this.prisma.session.create({
       data: {
@@ -40,6 +40,7 @@ export class SessionsService {
         hostId: input.hostId,
         maxPlayers: input.maxPlayers ?? 6,
         language: input.language ?? 'en',
+        playerEngagementType: input.playerEngagementType ?? 'CHOICE_ANSWER',
       } as any,
     });
 

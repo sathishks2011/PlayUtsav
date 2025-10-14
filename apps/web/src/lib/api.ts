@@ -19,7 +19,7 @@ export function listSessions(): Promise<Session[]> {
   return request('/sessions');
 }
 
-export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string }) {
+export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
   return request<Session>('/sessions', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -85,6 +85,39 @@ export function revealQuiz(
 
 export function fetchQuiz(sessionId: string) {
   return request<QuizState | null>(`/sessions/${sessionId}/quiz`);
+}
+
+// Buzzer mode API helpers
+export function pressBuzzer(sessionId: string, payload: { participantId: string }) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/buzzer/press`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function openBuzzer(sessionId: string) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/buzzer/open`, {
+    method: 'POST',
+  });
+}
+
+export function closeBuzzer(sessionId: string) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/buzzer/close`, {
+    method: 'POST',
+  });
+}
+
+export function resetBuzzer(sessionId: string) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/buzzer/reset`, {
+    method: 'POST',
+  });
+}
+
+export function overrideBuzzerControl(sessionId: string, payload: { participantId: string }) {
+  return request<QuizState | null>(`/sessions/${sessionId}/quiz/buzzer/override`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
 }
 
 // Auth API

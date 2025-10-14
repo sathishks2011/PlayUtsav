@@ -4,6 +4,7 @@ import type { Team } from '@pkg/core';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { addTeamThunk, removeParticipantThunk, resetSession, assignParticipantToTeamThunk } from '../store/slices/sessionSlice';
 import { HostQuizPanel } from '../components/HostQuizPanel';
+import { HostBuzzerControls } from '../components/HostBuzzerControls';
 import { ThemeStudioPanel } from '../components/ThemeStudioPanel';
 import { computeTeamScores } from '@pkg/core';
 
@@ -213,6 +214,7 @@ export function HostLobby() {
       )}
 
       <HostQuizPanel />
+      <HostBuzzerControls />
       <ThemeStudioPanel />
     </div>
   );

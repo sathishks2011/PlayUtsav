@@ -43,10 +43,36 @@ describe('QuizService', () => {
       result: { totalPoints: 100, breakdown: [] },
       stats: {},
     }),
+    // Reveal() check initializes scoring via sessionScoringService
+    sessionScoringService: {
+      getSessionEngine: jest.fn().mockResolvedValue({}),
+      attachConfigToSession: jest.fn().mockResolvedValue(undefined),
+    },
   } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    // Fully reset mock implementations and call history to avoid cross-test pollution
+    jest.resetAllMocks();
+    // Re-initialize stable default implementations
+    (mockScoring.scoreAnswer as jest.Mock).mockResolvedValue({
+      result: { totalPoints: 100, breakdown: [] },
+      stats: {},
+    });
+    (mockScoring.sessionScoringService.getSessionEngine as jest.Mock).mockResolvedValue({});
+    (mockScoring.sessionScoringService.attachConfigToSession as jest.Mock).mockResolvedValue(undefined);
+
+    // Restore sessions service mocks
+    (mockSessions.ensureSession as jest.Mock).mockResolvedValue({ id: 'session-1' });
+    (mockSessions.findParticipant as jest.Mock).mockResolvedValue({ id: 'p1', sessionId: 'session-1', displayName: 'Sam' });
+    (mockSessions.adjustScore as jest.Mock).mockResolvedValue(undefined);
+
+    // Ensure prisma mocks exist (implementations can be set in each test)
+    // No-op default to avoid accidental undefined
+    (mockPrisma.quizRound.updateMany as jest.Mock).mockResolvedValue({});
+    (mockPrisma.quizRound.create as jest.Mock).mockResolvedValue({});
+    (mockPrisma.quizRound.findFirst as jest.Mock).mockResolvedValue(null);
+    (mockPrisma.quizRound.update as jest.Mock).mockResolvedValue({});
+    (mockPrisma.quizAnswer.upsert as jest.Mock).mockResolvedValue({});
     service = new QuizService(mockPrisma as any, mockSessions, mockScoring);
   });
 

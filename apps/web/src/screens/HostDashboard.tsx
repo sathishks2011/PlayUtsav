@@ -4,7 +4,7 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutThunk } from '../store/slices/authSlice';
 import { createSessionThunk, setHostSession } from '../store/slices/sessionSlice';
 import { listSessions } from '../lib/api';
-import type { Session } from '@pkg/core';
+import type { Session, PlayerEngagementType } from '@pkg/core';
 
 export function HostDashboard() {
   const intl = useIntl();
@@ -17,6 +17,7 @@ export function HostDashboard() {
   const [hostName, setHostName] = useState(user?.displayName || '');
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [language, setLanguage] = useState('en');
+  const [playerEngagementType, setPlayerEngagementType] = useState<PlayerEngagementType>('CHOICE_ANSWER');
 
   useEffect(() => {
     loadSessions();
@@ -42,6 +43,7 @@ export function HostDashboard() {
           hostName: hostName || undefined,
           maxPlayers,
           language,
+          playerEngagementType,
         })
       ).unwrap();
       // Session is now in Redux state with role: 'HOST', will show HostLobby
@@ -79,6 +81,7 @@ export function HostDashboard() {
             </p>
           </div>
           <button
+            aria-label={intl.formatMessage({ id: 'auth.logout', defaultMessage: 'Sign Out' })}
             onClick={handleLogout}
             className="px-4 py-2 text-sm border border-[var(--fg)]/20 rounded hover:bg-[var(--fg)]/5 transition"
           >
@@ -105,6 +108,7 @@ export function HostDashboard() {
                 value={hostName}
                 onChange={(e) => setHostName(e.target.value)}
                 disabled={isCreating}
+                aria-label={intl.formatMessage({ id: 'host.hostName', defaultMessage: 'Host Name' })}
                 placeholder={intl.formatMessage({
                   id: 'host.hostName.placeholder',
                   defaultMessage: 'Your name',
@@ -125,6 +129,7 @@ export function HostDashboard() {
                 value={maxPlayers}
                 onChange={(e) => setMaxPlayers(Number(e.target.value))}
                 disabled={isCreating}
+                aria-label={intl.formatMessage({ id: 'host.maxPlayers', defaultMessage: 'Max Players' })}
                 className="w-full px-4 py-2 rounded border border-[var(--fg)]/20 bg-[var(--bg)] text-[var(--fg)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
               />
             </div>
@@ -138,6 +143,7 @@ export function HostDashboard() {
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
                 disabled={isCreating}
+                aria-label={intl.formatMessage({ id: 'host.language', defaultMessage: 'Language' })}
                 className="w-full px-4 py-2 rounded border border-[var(--fg)]/20 bg-[var(--bg)] text-[var(--fg)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
               >
                 <option value="en">English</option>
@@ -146,9 +152,124 @@ export function HostDashboard() {
             </div>
           </div>
 
+          {/* Player Engagement Type Selector */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium">
+              <FormattedMessage id="host.engagementType" defaultMessage="Game Mode" />
+            </label>
+            <p className="text-xs opacity-75 mb-3">
+              <FormattedMessage 
+                id="host.engagementType.description" 
+                defaultMessage="Choose how players will answer questions during the game" 
+              />
+            </p>
+            <div className="space-y-2">
+              {/* Multiple Choice Option */}
+              <label 
+                className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition ${
+                  playerEngagementType === 'CHOICE_ANSWER' 
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
+                    : 'border-[var(--fg)]/20 hover:border-[var(--fg)]/40'
+                } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="engagementType"
+                  value="CHOICE_ANSWER"
+                  checked={playerEngagementType === 'CHOICE_ANSWER'}
+                  onChange={(e) => setPlayerEngagementType(e.target.value as PlayerEngagementType)}
+                  disabled={isCreating}
+                  aria-label={intl.formatMessage({ id: 'host.engagementType.multipleChoice', defaultMessage: 'Multiple Choice' })}
+                  className="mt-1 mr-3"
+                />
+                <div className="flex-1">
+                  <div className="font-medium mb-1">
+                    <FormattedMessage id="host.engagementType.multipleChoice" defaultMessage="Multiple Choice" />
+                    <span className="ml-2 text-xs px-2 py-0.5 bg-[var(--accent)] text-white rounded">
+                      <FormattedMessage id="host.engagementType.default" defaultMessage="Default" />
+                    </span>
+                  </div>
+                  <p className="text-sm opacity-75">
+                    <FormattedMessage 
+                      id="host.engagementType.multipleChoice.description" 
+                      defaultMessage="Players select from answer options. Great for trivia and knowledge tests." 
+                    />
+                  </p>
+                </div>
+              </label>
+
+              {/* Buzzer Mode Option */}
+              <label 
+                className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition ${
+                  playerEngagementType === 'BUZZER' 
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10' 
+                    : 'border-[var(--fg)]/20 hover:border-[var(--fg)]/40'
+                } ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="engagementType"
+                  value="BUZZER"
+                  checked={playerEngagementType === 'BUZZER'}
+                  onChange={(e) => setPlayerEngagementType(e.target.value as PlayerEngagementType)}
+                  disabled={isCreating}
+                  aria-label={intl.formatMessage({ id: 'host.engagementType.buzzer', defaultMessage: 'Buzzer Mode' })}
+                  className="mt-1 mr-3"
+                />
+                <div className="flex-1">
+                  <div className="font-medium mb-1 flex items-center gap-2">
+                    <span>
+                      <FormattedMessage id="host.engagementType.buzzer" defaultMessage="Buzzer Mode" />
+                    </span>
+                    <span className="text-xs px-2 py-0.5 bg-yellow-500 text-black rounded">
+                      <FormattedMessage id="host.engagementType.new" defaultMessage="New" />
+                    </span>
+                  </div>
+                  <p className="text-sm opacity-75">
+                    <FormattedMessage 
+                      id="host.engagementType.buzzer.description" 
+                      defaultMessage="First to buzz gets to answer. Team colors, 30-second timer, and host controls included." 
+                    />
+                  </p>
+                </div>
+              </label>
+
+              {/* Voice Answer Option (Coming Soon) */}
+              <label 
+                className="flex items-start p-4 border-2 border-[var(--fg)]/10 rounded-lg opacity-50 cursor-not-allowed"
+              >
+                <input
+                  type="radio"
+                  name="engagementType"
+                  value="VOICE_ANSWER"
+                  disabled
+                  aria-label={intl.formatMessage({ id: 'host.engagementType.voice', defaultMessage: 'Voice Answer' })}
+                  className="mt-1 mr-3"
+                />
+                <div className="flex-1">
+                  <div className="font-medium mb-1 flex items-center gap-2">
+                    <span>
+                      <FormattedMessage id="host.engagementType.voice" defaultMessage="Voice Answer" />
+                    </span>
+                    <span className="text-xs px-2 py-0.5 bg-[var(--fg)]/20 rounded">
+                      <FormattedMessage id="host.engagementType.comingSoon" defaultMessage="Coming Soon" />
+                    </span>
+                  </div>
+                  <p className="text-sm opacity-75">
+                    <FormattedMessage 
+                      id="host.engagementType.voice.description" 
+                      defaultMessage="Players speak their answers using voice recognition. Perfect for open-ended questions." 
+                    />
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isCreating}
+            aria-label={intl.formatMessage({ id: 'host.createButton', defaultMessage: 'Create Session' })}
             className="w-full px-6 py-3 bg-[var(--accent)] text-white rounded font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {isCreating ? (
@@ -169,6 +290,7 @@ export function HostDashboard() {
           <button
             onClick={loadSessions}
             disabled={isLoadingSessions}
+            aria-label={intl.formatMessage({ id: 'common.refresh', defaultMessage: 'Refresh' })}
             className="px-3 py-1 text-sm border border-[var(--fg)]/20 rounded hover:bg-[var(--fg)]/5 transition disabled:opacity-50"
           >
             <FormattedMessage id="common.refresh" defaultMessage="Refresh" />
@@ -209,6 +331,12 @@ export function HostDashboard() {
                           teams: session.teams.length,
                         }}
                       />
+                      <div className="mt-1 text-xs">
+                        <span className="opacity-60 mr-1">Mode:</span>
+                        <span className="uppercase tracking-wide">
+                          {session.playerEngagementType.replace('_', ' ')}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -217,6 +345,7 @@ export function HostDashboard() {
                     </span>
                     <button
                       onClick={() => dispatch(setHostSession(session))}
+                      aria-label={intl.formatMessage({ id: 'host.session.manage', defaultMessage: 'Manage' })}
                       className="px-4 py-2 text-sm bg-[var(--accent)] text-white rounded font-medium hover:opacity-90 transition"
                     >
                       <FormattedMessage id="host.session.manage" defaultMessage="Manage" />

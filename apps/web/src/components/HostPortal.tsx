@@ -7,12 +7,15 @@ import { HostQuizPanel } from './HostQuizPanel';
 import { ThemeStudioPanel } from './ThemeStudioPanel';
 import { HostSettingsPanel } from './HostSettingsPanel';
 import { HostMetricsPanel } from './HostMetricsPanel';
+import { useBuzzerSync } from '../hooks/useBuzzerSync';
 
 type NavKey = 'dashboard' | 'lobby' | 'control' | 'settings' | 'metrics' | 'theme';
 
 export function HostPortal() {
   const [nav, setNav] = useState<NavKey>('dashboard');
   const session = useAppSelector((s) => s.session.current);
+
+  useBuzzerSync();
 
   // Auto switch to Lobby when session becomes active and user is on dashboard
   // Also preserve the nav state when session exists
@@ -53,9 +56,11 @@ export function HostPortal() {
         {nav === 'dashboard' && <HostDashboard />}
         {nav === 'lobby' && session && <HostLobby />}
         {nav === 'control' && session && (
-          <div className="rounded-lg border border-[var(--fg)]/10 bg-[var(--card)] p-4">
-            <h3 className="text-xl font-semibold mb-3"><FormattedMessage id="host.control.title" defaultMessage="Host Game Control" /></h3>
-            <HostQuizPanel />
+          <div className="space-y-4">
+            <div className="rounded-lg border border-[var(--fg)]/10 bg-[var(--card)] p-4">
+              <h3 className="text-xl font-semibold mb-3"><FormattedMessage id="host.control.title" defaultMessage="Host Game Control" /></h3>
+              <HostQuizPanel />
+            </div>
           </div>
         )}
         {nav === 'settings' && <HostSettingsPanel />}

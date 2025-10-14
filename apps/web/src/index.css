@@ -16,6 +16,18 @@ body {
   transition: background 0.6s ease, color 0.6s ease;
 }
 
+.player-buzzer-card {
+  --player-team-accent: var(--color-primary);
+}
+
+.player-buzzer-trigger {
+  background: radial-gradient(circle at center, var(--player-team-accent), var(--color-primary));
+}
+
+.team-name-badge {
+  color: var(--team-name-color, var(--color-accent));
+}
+
 * {
   outline-color: var(--color-primary);
 }

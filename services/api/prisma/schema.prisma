@@ -44,20 +44,21 @@ model UserSession {
 }
 
 model Session {
-  id           String          @id @default(cuid())
-  code         String          @unique
-  status       String          @default("LOBBY")
-  hostName     String?
-  host         User?           @relation(fields: [hostId], references: [id], onDelete: SetNull)
-  hostId       String?
-  maxPlayers   Int             @default(4)
-  language     String          @default("en")
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  teams        Team[]
-  participants Participant[]
-  scores       Score[]
-  quizRounds   QuizRound[]
+  id                    String          @id @default(cuid())
+  code                  String          @unique
+  status                String          @default("LOBBY")
+  hostName              String?
+  host                  User?           @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  hostId                String?
+  maxPlayers            Int             @default(4)
+  language              String          @default("en")
+  playerEngagementType  String          @default("CHOICE_ANSWER")
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  teams                 Team[]
+  participants          Participant[]
+  scores                Score[]
+  quizRounds            QuizRound[]
 }
 
 model Team {

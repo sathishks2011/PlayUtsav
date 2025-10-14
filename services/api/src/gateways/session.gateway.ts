@@ -56,6 +56,81 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.server.to(this.room(sessionId)).emit(event, data);
   }
 
+  // Buzzer Mode Events
+  async emitBuzzerOpened(sessionId: string, buzzerState: {
+    isOpen: boolean;
+    buzzerOpenedAt: string | null;
+    timerDuration: number;
+  }) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting buzzer:opened to room: ${roomName}`);
+    this.server.to(roomName).emit('buzzer:opened', {
+      sessionId,
+      buzzerState,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async emitBuzzerPressed(sessionId: string, buzzerPress: {
+    participantId: string;
+    participantName: string;
+    teamId: string | null;
+    teamName: string | null;
+    teamColor: string | null;
+    timestamp: string;
+  }, buzzerState: {
+    isOpen: boolean;
+    buzzPresses: Array<any>;
+    firstBuzzerId: string | null;
+    lockedForParticipantId: string | null;
+  }) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting buzzer:pressed to room: ${roomName}`);
+    this.logger.log(`[SessionGateway] Buzzer press by: ${buzzerPress.participantName} (${buzzerPress.teamName})`);
+    this.server.to(roomName).emit('buzzer:pressed', {
+      sessionId,
+      buzzerPress,
+      buzzerState,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async emitBuzzerClosed(sessionId: string, buzzerState: {
+    isOpen: boolean;
+    lockedForParticipantId: string | null;
+  }) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting buzzer:closed to room: ${roomName}`);
+    this.server.to(roomName).emit('buzzer:closed', {
+      sessionId,
+      buzzerState,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async emitBuzzerReset(sessionId: string) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting buzzer:reset to room: ${roomName}`);
+    this.server.to(roomName).emit('buzzer:reset', {
+      sessionId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async emitBuzzerOverride(sessionId: string, participantId: string, buzzerState: {
+    lockedForParticipantId: string | null;
+  }) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting buzzer:override to room: ${roomName}`);
+    this.logger.log(`[SessionGateway] Control overridden to participant: ${participantId}`);
+    this.server.to(roomName).emit('buzzer:override', {
+      sessionId,
+      participantId,
+      buzzerState,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   private room(sessionId: string) {
     return `session:${sessionId}`;
   }
