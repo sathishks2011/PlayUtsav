@@ -3,7 +3,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutThunk } from '../store/slices/authSlice';
 import { createSessionThunk, setHostSession } from '../store/slices/sessionSlice';
-import { listSessions, listQuizTemplates, attachQuizTemplate } from '../lib/api';
+import { listSessions, listQuizTemplates, attachQuizTemplate, deleteSession } from '../lib/api';
 import type { Session, PlayerEngagementType, QuizTemplateResponse } from '@pkg/core';
 
 export function HostDashboard() {
@@ -94,6 +94,38 @@ export function HostDashboard() {
       await dispatch(logoutThunk()).unwrap();
     } catch (err) {
       console.error('Failed to logout:', err);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId: string, sessionCode: string) => {
+    const confirmMessage = intl.formatMessage(
+      { id: 'host.session.deleteConfirm', defaultMessage: 'Are you sure you want to delete session {code}? This action cannot be undone.' },
+      { code: sessionCode }
+    );
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await deleteSession(sessionId);
+      console.log(`Session ${sessionCode} deleted successfully`);
+      
+      // Reload sessions list
+      await loadSessions();
+      
+      // Show success message
+      alert(intl.formatMessage(
+        { id: 'host.session.deleteSuccess', defaultMessage: 'Session {code} deleted successfully' },
+        { code: sessionCode }
+      ));
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      alert(intl.formatMessage(
+        { id: 'host.session.deleteError', defaultMessage: 'Failed to delete session: {error}' },
+        { error: errorMessage }
+      ));
     }
   };
 
@@ -450,6 +482,14 @@ export function HostDashboard() {
                       className="px-4 py-2 text-sm bg-[var(--accent)] text-white rounded font-medium hover:opacity-90 transition"
                     >
                       <FormattedMessage id="host.session.manage" defaultMessage="Manage" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSession(session.id, session.code)}
+                      aria-label={intl.formatMessage({ id: 'host.session.delete', defaultMessage: 'Delete' })}
+                      className="px-3 py-2 text-sm border border-red-500/40 text-red-400 rounded font-medium hover:bg-red-500/10 transition"
+                      title={intl.formatMessage({ id: 'host.session.deleteTooltip', defaultMessage: 'Delete this session' })}
+                    >
+                      🗑️
                     </button>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, BadRequestException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, BadRequestException, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import { SessionsService } from '../services/sessions.service';
 import { SessionGateway } from '../gateways/session.gateway';
@@ -236,6 +236,15 @@ export class SessionsController {
     
     // Emit round update to all subscribers
     this.gateway.emitSessionUpdate(sessionId);
+    
+    return result;
+  }
+
+  @Delete(':id')
+  async deleteSession(@Param('id') sessionId: string) {
+    const result = await this.sessions.deleteSession(sessionId);
+    
+    console.log(`[SessionsController] Session ${sessionId} deleted`);
     
     return result;
   }

@@ -33,6 +33,12 @@ export function getSessionById(sessionId: string): Promise<Session> {
   return request(`/sessions/${sessionId}`);
 }
 
+export function deleteSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+  return request(`/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+}
+
 export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
   return request<Session>('/sessions', {
     method: 'POST',
