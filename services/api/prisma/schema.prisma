@@ -50,6 +50,10 @@ model Session {
   hostName              String?
   host                  User?           @relation(fields: [hostId], references: [id], onDelete: SetNull)
   hostId                String?
+  quizTemplate          QuizTemplate?   @relation(fields: [quizTemplateId], references: [id], onDelete: SetNull)
+  quizTemplateId        String?
+  currentCategoryIndex  Int             @default(0)
+  currentQuestionIndex  Int             @default(0)
   maxPlayers            Int             @default(4)
   language              String          @default("en")
   playerEngagementType  String          @default("CHOICE_ANSWER")
@@ -141,6 +145,54 @@ model Template {
   content   String
   locale    String   @default("en")
   createdAt DateTime @default(now())
+}
+
+// Quiz Template and Question Bank Models
+
+model QuizTemplate {
+  id          String   @id @default(cuid())
+  hostId      String
+  name        String
+  description String?
+  categories  QuizCategory[]
+  sessions    Session[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([hostId])
+}
+
+model QuizCategory {
+  id          String   @id @default(cuid())
+  template    QuizTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  templateId  String
+  name        String
+  displayOrder Int
+  questions   QuizQuestion[]
+  createdAt   DateTime @default(now())
+  
+  @@index([templateId])
+  @@index([templateId, displayOrder])
+}
+
+model QuizQuestion {
+  id          String   @id @default(cuid())
+  category    QuizCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId  String
+  question    String
+  options     String   // JSON array of options
+  correctAnswer Int
+  displayOrder Int
+  difficulty  String?  // EASY, MEDIUM, HARD
+  points      Int      @default(100)
+  timeLimit   Int      @default(30)
+  explanation String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([categoryId])
+  @@index([categoryId, displayOrder])
 }
 
 // Scoring System Models

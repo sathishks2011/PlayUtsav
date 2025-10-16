@@ -3,8 +3,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutThunk } from '../store/slices/authSlice';
 import { createSessionThunk, setHostSession } from '../store/slices/sessionSlice';
-import { listSessions } from '../lib/api';
-import type { Session, PlayerEngagementType } from '@pkg/core';
+import { listSessions, listQuizTemplates, attachQuizTemplate } from '../lib/api';
+import type { Session, PlayerEngagementType, QuizTemplateResponse } from '@pkg/core';
 
 export function HostDashboard() {
   const intl = useIntl();
@@ -18,10 +18,29 @@ export function HostDashboard() {
   const [maxPlayers, setMaxPlayers] = useState(6);
   const [language, setLanguage] = useState('en');
   const [playerEngagementType, setPlayerEngagementType] = useState<PlayerEngagementType>('CHOICE_ANSWER');
+  
+  // Template selection
+  const [templates, setTemplates] = useState<QuizTemplateResponse[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isAttachingTemplate, setIsAttachingTemplate] = useState(false);
 
   useEffect(() => {
     loadSessions();
+    loadTemplates();
   }, []);
+
+  const loadTemplates = async () => {
+    setIsLoadingTemplates(true);
+    try {
+      const data = await listQuizTemplates();
+      setTemplates(data);
+    } catch (err) {
+      console.error('Failed to load templates:', err);
+    } finally {
+      setIsLoadingTemplates(false);
+    }
+  };
 
   const loadSessions = async () => {
     setIsLoadingSessions(true);
@@ -46,8 +65,25 @@ export function HostDashboard() {
           playerEngagementType,
         })
       ).unwrap();
-      // Session is now in Redux state with role: 'HOST', will show HostLobby
+      
       console.log('Session created:', session.code);
+
+      // Attach template if one is selected
+      if (selectedTemplateId) {
+        setIsAttachingTemplate(true);
+        try {
+          await attachQuizTemplate(session.id, selectedTemplateId);
+          console.log('Template attached successfully to session:', session.id);
+        } catch (err) {
+          console.error('Failed to attach template:', err);
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          alert(`Session created but failed to attach template: ${errorMessage}\n\nYou can attach it later from the Templates tab.`);
+        } finally {
+          setIsAttachingTemplate(false);
+        }
+      }
+      
+      // Session is now in Redux state with role: 'HOST', will show HostLobby
     } catch (err) {
       console.error('Failed to create session:', err);
     }
@@ -266,14 +302,71 @@ export function HostDashboard() {
             </div>
           </div>
 
+          {/* Quiz Template Selector */}
+          <div className="space-y-2">
+            <label htmlFor="templateSelect" className="block text-sm font-medium">
+              <FormattedMessage id="host.template" defaultMessage="Quiz Template" />
+              <span className="ml-2 text-xs opacity-75">
+                <FormattedMessage id="host.template.optional" defaultMessage="(Optional)" />
+              </span>
+            </label>
+            <p className="text-xs opacity-75 mb-3">
+              <FormattedMessage 
+                id="host.template.description" 
+                defaultMessage="Select a pre-made quiz template with questions organized into rounds" 
+              />
+            </p>
+            
+            {isLoadingTemplates ? (
+              <div className="text-sm opacity-75 py-2">
+                <FormattedMessage id="common.loading" defaultMessage="Loading templates..." />
+              </div>
+            ) : (
+              <select
+                id="templateSelect"
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                disabled={isCreating || isAttachingTemplate}
+                aria-label={intl.formatMessage({ id: 'host.template', defaultMessage: 'Quiz Template' })}
+                className="w-full px-4 py-2 rounded border border-[var(--fg)]/20 bg-[var(--bg)] text-[var(--fg)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+              >
+                <option value="">
+                  {intl.formatMessage({ 
+                    id: 'host.template.none', 
+                    defaultMessage: 'No template (use custom questions)' 
+                  })}
+                </option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} ({template.categories.length} rounds, {' '}
+                    {template.categories.reduce((sum, cat) => sum + cat.questions.length, 0)} questions)
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {selectedTemplateId && (
+              <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded text-sm">
+                <p className="text-blue-400">
+                  💡 <FormattedMessage 
+                    id="host.template.tip" 
+                    defaultMessage="Template will be attached after session creation. You can navigate between rounds from the Game Control panel." 
+                  />
+                </p>
+              </div>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={isCreating}
+            disabled={isCreating || isAttachingTemplate}
             aria-label={intl.formatMessage({ id: 'host.createButton', defaultMessage: 'Create Session' })}
             className="w-full px-6 py-3 bg-[var(--accent)] text-white rounded font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {isCreating ? (
               <FormattedMessage id="host.creating" defaultMessage="Creating..." />
+            ) : isAttachingTemplate ? (
+              <FormattedMessage id="host.attachingTemplate" defaultMessage="Attaching template..." />
             ) : (
               <FormattedMessage id="host.createButton" defaultMessage="Create Session" />
             )}
@@ -337,6 +430,14 @@ export function HostDashboard() {
                           {session.playerEngagementType.replace('_', ' ')}
                         </span>
                       </div>
+                      {session.quizTemplateId && session.quizTemplate && (
+                        <div className="mt-1 text-xs flex items-center gap-1">
+                          <span className="opacity-60">Template:</span>
+                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+                            📋 {session.quizTemplate.name}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

@@ -2,12 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useAppSelector } from '../store/hooks';
 
 interface ScoreAnimationProps {
-  /** Starting coordinates (e.g., answer button position) */
-  startX: number;
-  startY: number;
-  /** Target coordinates (e.g., scoreboard position) */
-  targetX: number;
-  targetY: number;
+  /** Position coordinates (scoreboard area) */
+  x: number;
+  y: number;
   /** Points earned (affects animation size/duration) */
   points: number;
   /** Whether this is a bonus/special score */
@@ -21,21 +18,19 @@ interface ScoreAnimationProps {
 /**
  * ScoreAnimation Component
  * 
- * Displays a flashy star or coin that flies from the answer area to the scoreboard
- * when a player selects a correct answer. Animation duration and size vary based on
- * points earned.
+ * Displays a flashy star or coin that zooms in and out at the scoreboard position
+ * when a player earns points. Animation focuses on the icon itself with no position movement.
  * 
  * Features:
  * - Star or coin SVG icon
- * - Flies from startX/startY to targetX/targetY
- * - Duration: 2-4 seconds based on distance and points
+ * - Zoom in/out animation at fixed position
+ * - Duration: 1.5 seconds
  * - Size varies: larger for bonus points
  * - Respects animation settings (disabled if reduceMotion or !animationsEnabled)
  * 
  * Usage:
  * <ScoreAnimation
- *   startX={100} startY={200}
- *   targetX={800} targetY={50}
+ *   x={800} y={50}
  *   points={10}
  *   isBonus={false}
  *   type="coin"
@@ -43,10 +38,8 @@ interface ScoreAnimationProps {
  * />
  */
 export const ScoreAnimation: React.FC<ScoreAnimationProps> = ({
-  startX,
-  startY,
-  targetX,
-  targetY,
+  x,
+  y,
   points,
   isBonus = false,
   type = 'coin',
@@ -58,12 +51,8 @@ export const ScoreAnimation: React.FC<ScoreAnimationProps> = ({
 
   const [isVisible, setIsVisible] = useState(true);
 
-  // Determine animation duration based on distance and points
-  const distance = Math.sqrt(
-    Math.pow(targetX - startX, 2) + Math.pow(targetY - startY, 2)
-  );
-  const baseDuration = Math.min(Math.max(distance / 500, 2), 4); // 2-4 seconds
-  const duration = isBonus ? baseDuration * 1.2 : baseDuration; // Bonus takes longer
+  // Fixed duration for zoom in/out animation
+  const duration = 1.5; // 1.5 seconds
 
   // Determine size based on points and bonus status
   const baseSize = isBonus ? 60 : 40; // Larger for bonus
@@ -90,63 +79,69 @@ export const ScoreAnimation: React.FC<ScoreAnimationProps> = ({
     return null;
   }
 
-  // Calculate animation path
-  const deltaX = targetX - startX;
-  const deltaY = targetY - startY;
-
   return (
     <div
       className="score-animation-container"
       style={{
         position: 'fixed',
-        left: startX,
-        top: startY,
+        left: x - size / 2,
+        top: y - size / 2,
         width: size,
         height: size,
         pointerEvents: 'none',
         zIndex: 9999,
-        animation: `fly ${duration}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards, pulse ${duration * 0.5}s ease-in-out infinite`,
-        '--delta-x': `${deltaX}px`,
-        '--delta-y': `${deltaY}px`,
       } as React.CSSProperties}
     >
-      {type === 'coin' ? (
-        <CoinIcon size={size} isBonus={isBonus} />
-      ) : (
-        <StarIcon size={size} isBonus={isBonus} />
-      )}
+      <div className="score-animation-icon">
+        {type === 'coin' ? (
+          <CoinIcon size={size} isBonus={isBonus} />
+        ) : (
+          <StarIcon size={size} isBonus={isBonus} />
+        )}
+      </div>
 
       <style>{`
-        @keyframes fly {
+        @keyframes zoomInOut {
           0% {
-            transform: translate(0, 0) scale(0.5) rotate(0deg);
+            transform: scale(0);
             opacity: 0;
           }
-          10% {
+          20% {
+            transform: scale(1.5);
             opacity: 1;
-            transform: translate(0, 0) scale(1.2) rotate(0deg);
           }
-          90% {
+          40% {
+            transform: scale(1.2);
             opacity: 1;
-            transform: translate(var(--delta-x), var(--delta-y)) scale(1) rotate(720deg);
+          }
+          80% {
+            transform: scale(1.3);
+            opacity: 1;
           }
           100% {
-            transform: translate(var(--delta-x), var(--delta-y)) scale(0.3) rotate(720deg);
+            transform: scale(0);
             opacity: 0;
           }
         }
 
-        @keyframes pulse {
+        @keyframes glow {
           0%, 100% {
-            filter: brightness(1);
+            filter: brightness(1) drop-shadow(0 0 4px currentColor);
           }
           50% {
-            filter: brightness(1.5) drop-shadow(0 0 8px currentColor);
+            filter: brightness(1.8) drop-shadow(0 0 16px currentColor);
           }
         }
 
         .score-animation-container {
           will-change: transform, opacity;
+        }
+
+        .score-animation-icon {
+          width: 100%;
+          height: 100%;
+          animation: zoomInOut ${duration}s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+                     glow ${duration * 0.4}s ease-in-out infinite;
         }
       `}</style>
     </div>

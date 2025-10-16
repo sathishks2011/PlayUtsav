@@ -224,7 +224,18 @@ export class QuizService {
     }
 
     // Now, trigger scoring for all answers submitted for this round
+    const scoreUpdates: Array<{ participantId: string; teamId: string | null; delta: number; newTotal: number }> = [];
+    
     if (payload.correctOption !== null) {
+      // Get participant team mappings
+      const participants = await (this.prisma as any).participant.findMany({
+        where: { sessionId: round.sessionId },
+        select: { id: true, teamId: true, displayName: true },
+      });
+      const participantMap = new Map(
+        participants.map((p: any) => [p.id, { teamId: p.teamId, displayName: p.displayName }])
+      );
+      
       for (const answer of round.answers) {
         const isCorrect = answer.answer === payload.correctOption;
         
@@ -235,7 +246,7 @@ export class QuizService {
         );
 
         // eslint-disable-next-line no-await-in-loop
-        await this.scoring.scoreAnswer({
+        const scoringResult = await this.scoring.scoreAnswer({
           sessionId: round.sessionId,
           playerId: answer.participantId,
           questionId: round.questionId,
@@ -248,8 +259,41 @@ export class QuizService {
             difficulty: 'medium', // TODO: Get this from the question metadata
           },
         });
+        
+        // Create Score record for this answer
+        const participantInfo = participantMap.get(answer.participantId) as { teamId: string | null; displayName: string } | undefined;
+        if (participantInfo?.teamId) {
+          // Create score record even for 0 points to track all answers
+          console.log(`[QuizService] Creating score record for ${participantInfo.displayName} (team: ${participantInfo.teamId}): delta=${scoringResult.result.totalPoints}, total=${scoringResult.stats.totalScore}, correct=${isCorrect}`);
+          
+          // eslint-disable-next-line no-await-in-loop
+          const scoreRecord = await (this.prisma as any).score.create({
+            data: {
+              sessionId: round.sessionId,
+              teamId: participantInfo.teamId,
+              value: scoringResult.stats.totalScore,
+              delta: scoringResult.result.totalPoints,
+              reason: isCorrect ? `Correct answer to question ${round.questionId}` : `Incorrect answer to question ${round.questionId}`,
+              recordedBy: answer.participantId,
+            },
+          });
+          
+          console.log(`[QuizService] Score record created:`, scoreRecord);
+          
+          // Track for animation events - emit for ALL answers (correct and wrong)
+          // This ensures sounds play and animations show even for 0-point answers
+          scoreUpdates.push({
+            participantId: answer.participantId,
+            teamId: participantInfo.teamId,
+            delta: scoringResult.result.totalPoints,
+            newTotal: scoringResult.stats.totalScore,
+          });
+        }
       }
     }
+    
+    // Return both the round state and score updates for animation
+    return { round: await this.fetchActiveRound(sessionId), scoreUpdates };
 
     return this.fetchActiveRound(sessionId);
   }

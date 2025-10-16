@@ -56,14 +56,19 @@ export type Session = {
   code: string;
   status: SessionStatus;
   hostName?: string | null;
+  hostId?: string | null;
   maxPlayers: number;
   language: string;
   playerEngagementType: PlayerEngagementType;
+  quizTemplateId?: string | null;
+  currentCategoryIndex?: number;
+  currentQuestionIndex?: number;
   createdAt: string;
   updatedAt: string;
   teams: Team[];
   participants: Participant[];
   scores: Score[];
+  quizTemplate?: QuizTemplateResponse;
 };
 
 export type Theme = {
@@ -90,4 +95,118 @@ export type ScoreAnimationEvent = {
   isBonus: boolean;
   timestamp: number;
   reason?: string;
+};
+
+// Quiz Template Types
+export type QuizDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
+
+export type QuizQuestionDTO = {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  displayOrder: number;
+  difficulty?: QuizDifficulty;
+  points?: number;
+  timeLimit?: number;
+  explanation?: string;
+  imageUrl?: string;
+};
+
+export type QuizCategoryDTO = {
+  categoryName: string;
+  displayOrder: number;
+  questions: QuizQuestionDTO[];
+};
+
+export type QuizTemplateDTO = {
+  templateName: string;
+  templateDescription?: string;
+  categories: QuizCategoryDTO[];
+};
+
+export type QuestionResponse = {
+  id: string;
+  categoryId: string;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  displayOrder: number;
+  difficulty?: QuizDifficulty;
+  points?: number;
+  timeLimit?: number;
+  explanation?: string;
+  imageUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CategoryResponse = {
+  id: string;
+  templateId: string;
+  name: string;
+  displayOrder: number;
+  questions: QuestionResponse[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type QuizTemplateResponse = {
+  id: string;
+  hostId: string;
+  name: string;
+  description?: string;
+  categories: CategoryResponse[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type UpdateQuestionDTO = {
+  question?: string;
+  options?: string[];
+  correctAnswer?: number;
+  displayOrder?: number;
+  difficulty?: QuizDifficulty;
+  points?: number;
+  timeLimit?: number;
+  explanation?: string;
+  imageUrl?: string;
+};
+
+export type ValidationError = {
+  field: string;
+  message: string;
+};
+
+export type TemplateValidationResult = {
+  isValid: boolean;
+  errors: ValidationError[];
+};
+
+// Quiz Round Integration Types
+export type RoundInfo = {
+  session: {
+    id: string;
+    currentCategoryIndex: number;
+    currentQuestionIndex: number;
+  };
+  template: {
+    id: string;
+    name: string;
+  };
+  currentCategory: {
+    id: string;
+    name: string;
+    displayOrder: number;
+  };
+  questions: QuestionResponse[];
+  totalCategories: number;
+};
+
+export type AttachTemplateRequest = {
+  templateId: string;
+};
+
+export type UpdateRoundRequest = {
+  categoryIndex: number;
+  questionIndex: number;
 };

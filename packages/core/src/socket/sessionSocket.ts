@@ -53,6 +53,8 @@ export type BuzzerOverrideEvent = {
   timestamp: string;
 };
 
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
+
 export type SessionSocket = {
   subscribe: (sessionId: string, cb: (session: Session | null) => void) => void;
   unsubscribe: (sessionId: string) => void;
@@ -70,11 +72,41 @@ export type SessionSocket = {
   offBuzzerOverride: (sessionId: string) => void;
   on: (event: string, cb: (...args: unknown[]) => void) => void;
   off: (event: string, cb?: (...args: unknown[]) => void) => void;
+  onConnectionChange: (cb: (state: ConnectionState) => void) => void;
+  offConnectionChange: (cb: (state: ConnectionState) => void) => void;
+  getConnectionState: () => ConnectionState;
+  isConnected: () => boolean;
   disconnect: () => void;
+  reconnect: () => void;
 };
 
 export function createSessionSocket(baseUrl: string): SessionSocket {
-  const socket: Socket = io(`${baseUrl}/sessions`, { transports: ['websocket'] });
+  const socket: Socket = io(`${baseUrl}/sessions`, { 
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    timeout: 20000,
+  });
+
+  // Prevent unhandled errors from crashing the process
+  socket.io.on('error', (error) => {
+    console.error('[SessionSocket] Socket.IO engine error:', error);
+  });
+
+  // Handle low-level engine errors (TCP, network)
+  socket.io.engine.on('error', (error: any) => {
+    console.error('[SessionSocket] Engine error:', error.code || error.message);
+    // These errors will be handled by reconnection logic, don't crash
+  });
+
+  // Catch any other socket errors to prevent process crash
+  if (typeof socket.on === 'function') {
+    (socket as any).on('error', (error: any) => {
+      console.error('[SessionSocket] Socket error:', error);
+    });
+  }
 
   const listeners = new Map<string, (session: Session | null) => void>();
   const quizListeners = new Map<string, (state: QuizState | null) => void>();
@@ -83,7 +115,71 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
   const buzzerClosedListeners = new Map<string, (event: BuzzerClosedEvent) => void>();
   const buzzerResetListeners = new Map<string, (event: BuzzerResetEvent) => void>();
   const buzzerOverrideListeners = new Map<string, (event: BuzzerOverrideEvent) => void>();
+  const connectionChangeListeners = new Set<(state: ConnectionState) => void>();
+  
+  let connectionState: ConnectionState = 'connecting';
+  const subscribedSessions = new Set<string>();
 
+  // Connection state management
+  const notifyConnectionChange = (state: ConnectionState) => {
+    connectionState = state;
+    console.log('[SessionSocket] Connection state changed:', state);
+    connectionChangeListeners.forEach(cb => {
+      try {
+        cb(state);
+      } catch (error) {
+        console.error('[SessionSocket] Error in connection change listener:', error);
+      }
+    });
+  };
+
+  // Socket.IO connection events
+  socket.on('connect', () => {
+    console.log('[SessionSocket] Connected to server');
+    notifyConnectionChange('connected');
+    
+    // Resubscribe to all sessions after reconnection
+    subscribedSessions.forEach(sessionId => {
+      console.log('[SessionSocket] Resubscribing to session:', sessionId);
+      try {
+        socket.emit('session:subscribe', { sessionId });
+      } catch (error) {
+        console.error('[SessionSocket] Error resubscribing to session:', sessionId, error);
+      }
+    });
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log('[SessionSocket] Disconnected from server:', reason);
+    notifyConnectionChange('disconnected');
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    console.log('[SessionSocket] Reconnected after', attemptNumber, 'attempts');
+    notifyConnectionChange('connected');
+  });
+
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    console.log('[SessionSocket] Reconnection attempt:', attemptNumber);
+    notifyConnectionChange('reconnecting');
+  });
+
+  socket.on('reconnect_error', (error) => {
+    console.error('[SessionSocket] Reconnection error:', error);
+    notifyConnectionChange('error');
+  });
+
+  socket.on('reconnect_failed', () => {
+    console.error('[SessionSocket] Reconnection failed');
+    notifyConnectionChange('error');
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('[SessionSocket] Connection error:', error);
+    notifyConnectionChange('error');
+  });
+
+  // Session events
   socket.on('session:update', (payload: Session | null) => {
     if (!payload) return;
     const handler = listeners.get(payload.id);
@@ -145,12 +241,20 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
 
   return {
     subscribe(sessionId, cb) {
+      console.log('[SessionSocket] Subscribing to session:', sessionId);
       listeners.set(sessionId, cb);
-      socket.emit('session:subscribe', { sessionId });
+      subscribedSessions.add(sessionId);
+      if (socket.connected) {
+        socket.emit('session:subscribe', { sessionId });
+      }
     },
     unsubscribe(sessionId) {
+      console.log('[SessionSocket] Unsubscribing from session:', sessionId);
       listeners.delete(sessionId);
-      socket.emit('session:unsubscribe', { sessionId });
+      subscribedSessions.delete(sessionId);
+      if (socket.connected) {
+        socket.emit('session:unsubscribe', { sessionId });
+      }
     },
     onQuiz(sessionId, cb) {
       console.log('[SessionSocket] Registering quiz listener for session:', sessionId);
@@ -210,7 +314,39 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
         socket.off(event);
       }
     },
+    onConnectionChange(cb) {
+      connectionChangeListeners.add(cb);
+    },
+    offConnectionChange(cb) {
+      connectionChangeListeners.delete(cb);
+    },
+    getConnectionState() {
+      return connectionState;
+    },
+    isConnected() {
+      return socket.connected && connectionState === 'connected';
+    },
+    reconnect() {
+      console.log('[SessionSocket] Manual reconnect triggered. Current state:', {
+        socketConnected: socket.connected,
+        connectionState,
+      });
+      
+      // Always disconnect first to ensure clean reconnection
+      if (socket.connected) {
+        console.log('[SessionSocket] Disconnecting before reconnect...');
+        socket.disconnect();
+      }
+      
+      // Wait a moment then reconnect
+      setTimeout(() => {
+        console.log('[SessionSocket] Connecting to server...');
+        notifyConnectionChange('connecting');
+        socket.connect();
+      }, 100);
+    },
     disconnect() {
+      console.log('[SessionSocket] Disconnecting socket');
       socket.disconnect();
       listeners.clear();
       quizListeners.clear();
@@ -219,6 +355,8 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
       buzzerClosedListeners.clear();
       buzzerResetListeners.clear();
       buzzerOverrideListeners.clear();
+      subscribedSessions.clear();
+      connectionChangeListeners.clear();
     },
   };
 }

@@ -6,6 +6,7 @@ export function useAuth() {
   const dispatch = useAppDispatch();
   const { user, status, error } = useAppSelector((s) => s.auth);
 
+  // Restore authentication from cookie on mount
   useEffect(() => {
     if (status === 'idle') {
       dispatch(getProfileThunk());

@@ -92,6 +92,9 @@ const authSlice = createSlice({
         state.user = null;
         state.status = 'unauthenticated';
         state.error = undefined;
+        
+        // Clear host session from localStorage on logout
+        localStorage.removeItem('hostSession');
       })
       .addCase(logoutThunk.rejected, (state, action) => {
         state.status = 'error';
@@ -110,6 +113,9 @@ const authSlice = createSlice({
       .addCase(getProfileThunk.rejected, (state) => {
         state.user = null;
         state.status = 'unauthenticated';
+        
+        // Clear host session when profile fetch fails (e.g., invalid/expired JWT)
+        localStorage.removeItem('hostSession');
       });
   },
 });

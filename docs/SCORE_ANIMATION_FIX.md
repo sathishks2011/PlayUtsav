@@ -296,3 +296,69 @@ Animation completes after 2-4 seconds
 - **Check**: Backend logs for score calculation
 - **Check**: WebSocket `session:update` events
 
+---
+
+## Update: Score & Sound Fix (October 15, 2025)
+
+### Issues Identified
+
+#### 1. Wrong Answer Sounds Not Playing
+**Symptom**: Buzzer sound works, but correct/wrong answer sounds don't play when host reveals answer.
+
+**Root Cause**: 
+- The `useSessionSync` hook was only playing `'coin'` sound regardless of whether answer was correct or wrong
+- No logic to differentiate between positive points (correct) and zero/negative points (wrong)
+
+**Fix**: Updated `apps/web/src/hooks/useSessionSync.ts`:
+```typescript
+// Play appropriate sound based on points (positive = correct, zero/negative = wrong)
+const soundType = event.points > 0 ? 'coin' : 'coin_wrong';
+soundManager.playSound(soundType, soundSettings.masterVolume / 100);
+```
+
+#### 2. Scores Not Updating & No Animation
+**Symptom**: Score doesn't update on screen and no animation plays when answer is revealed.
+
+**Root Cause**: 
+The quiz service was filtering out score updates with 0 points:
+```typescript
+// OLD CODE (BROKEN)
+if (participantInfo?.teamId && scoringResult.result.totalPoints !== 0) {
+  // Only saved non-zero scores, ignored wrong answers
+}
+```
+
+This meant:
+- Wrong answers that score 0 points were NOT creating Score records
+- Wrong answers were NOT emitting `score:animated` events
+- No sound or animation for wrong answers
+- Scores not visible in UI
+
+**Fix**: Removed the `!== 0` condition in `services/api/src/services/quiz.service.ts`:
+```typescript
+// NEW CODE (FIXED)
+if (participantInfo?.teamId) {
+  // Create score record even for 0 points to track all answers
+  await prisma.score.create({ ... });
+  
+  // Emit events for ALL answers (correct and wrong)
+  scoreUpdates.push({ ... });
+}
+```
+
+### Files Modified
+
+1. **`apps/web/src/hooks/useSessionSync.ts`**
+   - Added logic to play `'coin'` for positive points, `'coin_wrong'` for zero/negative
+   - Enhanced logging: `[useSessionSync] Triggering coin_wrong sound for 0 points`
+
+2. **`services/api/src/services/quiz.service.ts`**
+   - Removed filter preventing 0-point scores from being saved
+   - ALL answers now create Score records and emit events
+
+### Testing Checklist
+- ✅ Correct answers: Play `coin` sound, show +points animation
+- ✅ Wrong answers: Play `coin_wrong` sound, show 0 points
+- ✅ Scores update in team list
+- ✅ Animations play for all players
+

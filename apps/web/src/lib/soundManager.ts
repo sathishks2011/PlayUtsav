@@ -20,16 +20,18 @@
  * ```
  */
 
-export type SoundType = 'coin' | 'buzzer' | 'background' | 'notification';
+export type SoundType = 'coin' | 'coin_wrong' | 'buzzer' | 'background' | 'notification';
 
 interface SoundSettings {
   masterVolume: number; // 0-100
   soundsEnabled: boolean;
   coinSoundEnabled: boolean;
+  coinWrongSoundEnabled: boolean;
   buzzerSoundEnabled: boolean;
   backgroundMusicEnabled: boolean;
   notificationsEnabled: boolean;
   coinSoundPath: string;
+  coinWrongSoundPath: string;
   buzzerSoundPath: string;
   backgroundMusicPath: string;
   notificationSoundPath: string;
@@ -47,9 +49,85 @@ export class SoundManager {
   private isLowPerformanceDevice: boolean = false;
   private backgroundMusic: HTMLAudioElement | null = null;
   private isBackgroundPlaying: boolean = false;
+  private audioUnlocked: boolean = false;
 
   private constructor() {
     this.detectPerformance();
+    this.setupAudioUnlock();
+  }
+
+  /**
+   * Setup audio unlock for mobile devices
+   * Mobile browsers require user interaction before audio can play
+   */
+  private setupAudioUnlock(): void {
+    const unlockAudio = () => {
+      if (this.audioUnlocked) return;
+
+      console.log('[SoundManager] Attempting to unlock audio...');
+      
+      // Create a silent audio to unlock using Web Audio API
+      // This is more reliable than using Audio elements
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const audioContext = new AudioContext();
+        
+        // Create a silent buffer
+        const buffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        
+        console.log('[SoundManager] Audio unlocked successfully via AudioContext');
+        this.audioUnlocked = true;
+        
+        // Close the context after a short delay
+        setTimeout(() => {
+          audioContext.close();
+        }, 100);
+        
+        // Remove listeners
+        document.removeEventListener('touchstart', unlockAudio);
+        document.removeEventListener('touchend', unlockAudio);
+        document.removeEventListener('click', unlockAudio);
+        document.removeEventListener('keydown', unlockAudio);
+      } catch (error) {
+        console.warn('[SoundManager] AudioContext unlock failed, trying Audio element fallback:', error);
+        
+        // Fallback to Audio element with a very short silent sound
+        const silentAudio = new Audio();
+        // Use a minimal WAV file data URI instead of MP3
+        silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        
+        const playPromise = silentAudio.play();
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('[SoundManager] Audio unlocked successfully via Audio element');
+              this.audioUnlocked = true;
+              silentAudio.pause();
+              silentAudio.currentTime = 0;
+              
+              // Remove listeners
+              document.removeEventListener('touchstart', unlockAudio);
+              document.removeEventListener('touchend', unlockAudio);
+              document.removeEventListener('click', unlockAudio);
+              document.removeEventListener('keydown', unlockAudio);
+            })
+            .catch((error) => {
+              console.error('[SoundManager] Audio unlock failed:', error);
+            });
+        }
+      }
+    };
+
+    // Try to unlock on various user interactions
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('touchend', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
   }
 
   /**
@@ -79,12 +157,14 @@ export class SoundManager {
     
     // Update sound paths if changed
     if (settings.coinSoundPath) this.loadSound('coin', settings.coinSoundPath);
+    if (settings.coinWrongSoundPath) this.loadSound('coin_wrong', settings.coinWrongSoundPath);
     if (settings.buzzerSoundPath) this.loadSound('buzzer', settings.buzzerSoundPath);
     if (settings.backgroundMusicPath) this.loadSound('background', settings.backgroundMusicPath);
     if (settings.notificationSoundPath) this.loadSound('notification', settings.notificationSoundPath);
     
     // Update enabled states
     this.updateSoundState('coin', settings.coinSoundEnabled);
+    this.updateSoundState('coin_wrong', settings.coinWrongSoundEnabled);
     this.updateSoundState('buzzer', settings.buzzerSoundEnabled);
     this.updateSoundState('background', settings.backgroundMusicEnabled);
     this.updateSoundState('notification', settings.notificationsEnabled);
@@ -98,8 +178,14 @@ export class SoundManager {
       settings: this.settings,
       soundsEnabled: this.settings?.soundsEnabled,
       isLowPerf: this.isLowPerformanceDevice,
+      audioUnlocked: this.audioUnlocked,
       soundCache: this.sounds.get(type),
     });
+    
+    if (!this.audioUnlocked) {
+      console.warn(`[SoundManager] Sound "${type}" blocked: audio not unlocked yet (waiting for user interaction)`);
+      return;
+    }
     
     if (!this.settings || !this.settings.soundsEnabled) {
       console.warn(`[SoundManager] Sound "${type}" blocked: settings not ready or sounds disabled`);
@@ -188,29 +274,30 @@ export class SoundManager {
    */
   private detectPerformance(): boolean {
     try {
-      // Check if device reports low memory
+      // Check if device reports very low memory (less than 300MB)
       const memoryInfo = (performance as any).memory;
-      if (memoryInfo && memoryInfo.jsHeapSizeLimit < 500 * 1024 * 1024) {
+      if (memoryInfo && memoryInfo.jsHeapSizeLimit < 300 * 1024 * 1024) {
+        console.log('[SoundManager] Low performance detected: low memory');
         this.isLowPerformanceDevice = true;
         return true;
       }
 
-      // Check hardware concurrency (CPU cores)
-      if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 4) {
+      // Only flag as low performance if very few cores (< 2)
+      // Modern phones have 4-8 cores, so this is very conservative
+      if (navigator.hardwareConcurrency && navigator.hardwareConcurrency < 2) {
+        console.log('[SoundManager] Low performance detected: low CPU cores');
         this.isLowPerformanceDevice = true;
         return true;
       }
 
-      // Check device pixel ratio (high DPR on low-end devices can strain performance)
-      if (window.devicePixelRatio > 2) {
-        this.isLowPerformanceDevice = true;
-        return true;
-      }
+      // Removed devicePixelRatio check - high DPR is normal for modern phones
+      // and doesn't indicate low performance
 
+      console.log('[SoundManager] Device performance: OK');
       this.isLowPerformanceDevice = false;
       return false;
     } catch (error) {
-      console.warn('Performance detection failed:', error);
+      console.warn('[SoundManager] Performance detection failed:', error);
       this.isLowPerformanceDevice = false;
       return false;
     }
@@ -230,6 +317,7 @@ export class SoundManager {
     if (!this.settings) return;
 
     this.loadSound('coin', this.settings.coinSoundPath);
+    this.loadSound('coin_wrong', this.settings.coinWrongSoundPath);
     this.loadSound('buzzer', this.settings.buzzerSoundPath);
     this.loadSound('background', this.settings.backgroundMusicPath);
     this.loadSound('notification', this.settings.notificationSoundPath);
@@ -240,12 +328,30 @@ export class SoundManager {
    */
   private loadSound(type: SoundType, path: string): void {
     if (!path) {
-      console.warn(`No path provided for sound type "${type}"`);
+      console.warn(`[SoundManager] No path provided for sound type "${type}"`);
       return;
     }
 
+    console.log(`[SoundManager] Loading sound "${type}" from path: ${path}`);
+    
     const audio = new Audio(path);
     audio.preload = 'auto';
+    
+    // Add error handler to catch loading issues
+    audio.addEventListener('error', (e) => {
+      console.error(`[SoundManager] Failed to load sound "${type}" from ${path}:`, {
+        error: e,
+        networkState: audio.networkState,
+        readyState: audio.readyState,
+        errorCode: audio.error?.code,
+        errorMessage: audio.error?.message,
+      });
+    });
+    
+    // Add success handler
+    audio.addEventListener('canplaythrough', () => {
+      console.log(`[SoundManager] Sound "${type}" loaded successfully and ready to play`);
+    });
     
     const enabled = this.getSoundEnabledState(type);
     
@@ -264,6 +370,8 @@ export class SoundManager {
     switch (type) {
       case 'coin':
         return this.settings.coinSoundEnabled;
+      case 'coin_wrong':
+        return this.settings.coinWrongSoundEnabled;
       case 'buzzer':
         return this.settings.buzzerSoundEnabled;
       case 'background':

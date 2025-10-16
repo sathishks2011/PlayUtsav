@@ -176,6 +176,209 @@ export class SessionsService {
     return session;
   }
 
+  async attachQuizTemplate(sessionId: string, templateId: string, hostId: string) {
+    // Verify session exists
+    const session = await this.ensureSession(sessionId);
+
+    // Verify template exists (allow any host to use any template)
+    const template = await this.prisma.quizTemplate.findUnique({
+      where: { id: templateId },
+    });
+
+    if (!template) {
+      throw new NotFoundException('Quiz template not found');
+    }
+
+    // Attach template to session and reset round tracking
+    return this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        quizTemplateId: templateId,
+        currentCategoryIndex: 0,
+        currentQuestionIndex: 0,
+      },
+      include: {
+        quizTemplate: {
+          include: {
+            categories: {
+              include: {
+                questions: {
+                  orderBy: { displayOrder: 'asc' },
+                },
+              },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  async updateCurrentRound(sessionId: string, categoryIndex: number, questionIndex: number) {
+    // Verify session exists
+    await this.ensureSession(sessionId);
+
+    return this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        currentCategoryIndex: categoryIndex,
+        currentQuestionIndex: questionIndex,
+      },
+    });
+  }
+
+  async getCurrentRoundQuestions(sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        quizTemplate: {
+          include: {
+            categories: {
+              include: {
+                questions: {
+                  orderBy: { displayOrder: 'asc' },
+                },
+              },
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (!session.quizTemplate) {
+      throw new BadRequestException('No quiz template attached to this session');
+    }
+
+    const categories = session.quizTemplate.categories;
+    if (session.currentCategoryIndex >= categories.length) {
+      throw new BadRequestException('Invalid category index');
+    }
+
+    const currentCategory = categories[session.currentCategoryIndex];
+    return {
+      session: {
+        id: session.id,
+        currentCategoryIndex: session.currentCategoryIndex,
+        currentQuestionIndex: session.currentQuestionIndex,
+      },
+      template: {
+        id: session.quizTemplate.id,
+        name: session.quizTemplate.name,
+      },
+      currentCategory: {
+        id: currentCategory.id,
+        name: currentCategory.name,
+        displayOrder: currentCategory.displayOrder,
+      },
+      questions: currentCategory.questions.map((q) => ({
+        ...q,
+        options: typeof q.options === 'string' ? JSON.parse(q.options as string) : q.options,
+      })),
+      totalCategories: categories.length,
+    };
+  }
+
+  async advanceToNextRound(sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        quizTemplate: {
+          include: {
+            categories: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (!session.quizTemplate) {
+      throw new BadRequestException('No quiz template attached to this session');
+    }
+
+    const totalCategories = session.quizTemplate.categories.length;
+    const nextCategoryIndex = session.currentCategoryIndex + 1;
+
+    if (nextCategoryIndex >= totalCategories) {
+      throw new BadRequestException('Already at the last round. Quiz complete!');
+    }
+
+    // Update session to next category and reset question index
+    const updated = await this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        currentCategoryIndex: nextCategoryIndex,
+        currentQuestionIndex: 0,
+      },
+    });
+
+    console.log(`[SessionsService] Advanced session ${sessionId} to round ${nextCategoryIndex + 1}`);
+
+    return {
+      currentCategoryIndex: updated.currentCategoryIndex,
+      currentQuestionIndex: updated.currentQuestionIndex,
+      totalCategories,
+      isComplete: false,
+    };
+  }
+
+  async advanceToPreviousRound(sessionId: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        quizTemplate: {
+          include: {
+            categories: {
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (!session.quizTemplate) {
+      throw new BadRequestException('No quiz template attached to this session');
+    }
+
+    const totalCategories = session.quizTemplate.categories.length;
+    const prevCategoryIndex = session.currentCategoryIndex - 1;
+
+    if (prevCategoryIndex < 0) {
+      throw new BadRequestException('Already at the first round.');
+    }
+
+    // Update session to previous category and reset question index
+    const updated = await this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        currentCategoryIndex: prevCategoryIndex,
+        currentQuestionIndex: 0,
+      },
+    });
+
+    console.log(`[SessionsService] Moved session ${sessionId} back to round ${prevCategoryIndex + 1}`);
+
+    return {
+      currentCategoryIndex: updated.currentCategoryIndex,
+      currentQuestionIndex: updated.currentQuestionIndex,
+      totalCategories,
+      isComplete: false,
+    };
+  }
+
   private async generateUniqueCode() {
     const makeCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
     let code = makeCode();

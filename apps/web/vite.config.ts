@@ -27,6 +27,54 @@ export default defineConfig({
       }
     })
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        configure: (proxy, _options) => {
+          proxy.on('error', (err: any, req, res) => {
+            console.error('[Proxy Error]', err.code || err.message);
+            // Don't crash on connection reset - just log and continue
+            try {
+              if (err.code === 'ECONNRESET' || err.code === 'ECONNREFUSED' || err.code === 'ETIMEDOUT') {
+                console.log('[Proxy] Backend connection issue - request will retry');
+                // Send a proper error response instead of crashing
+                if (res && !res.headersSent && typeof res.writeHead === 'function') {
+                  res.writeHead(503, { 'Content-Type': 'application/json' });
+                  res.end(JSON.stringify({ 
+                    error: 'Service temporarily unavailable', 
+                    code: 'BACKEND_UNAVAILABLE' 
+                  }));
+                }
+              }
+            } catch (responseError) {
+              console.error('[Proxy] Error sending error response:', responseError);
+            }
+          });
+
+          // Handle socket errors on the proxy connection
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            console.log('Sending Request to the Target:', req.method, req.url);
+            
+            // Add error handler to the proxy request socket
+            if (proxyReq.socket) {
+              proxyReq.socket.on('error', (socketErr: any) => {
+                console.error('[Proxy Socket Error]', socketErr.code || socketErr.message);
+              });
+            }
+          });
+
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            if (proxyRes.statusCode && proxyRes.statusCode >= 400) {
+              console.log('[Proxy] Response:', req.method, req.url, '→', proxyRes.statusCode);
+            }
+          });
+        },
+      },
+    },
+  },
   resolve: {
     alias: [
       { find: /^@pkg\/core\/styles/, replacement: resolve(__dirname, '../../packages/core/styles') },

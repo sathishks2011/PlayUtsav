@@ -24,7 +24,15 @@ const cookieOptions = {
   httpOnly: true,
   sameSite: 'lax' as const,
   secure: process.env.NODE_ENV === 'production',
-  maxAge: 1000 * 60 * 60 * 12,
+  path: '/',
+  maxAge: 1000 * 60 * 60 * 12, // 12 hours
+};
+
+const clearCookieOptions = {
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
 };
 
 @Controller('auth')
@@ -37,6 +45,10 @@ export class AuthController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const user = await this.auth.signup(parsed.data);
     const token = this.auth.signToken({ id: user.id, role: user.role });
+    
+    // Clear any existing cookie first to avoid conflicts
+    res.clearCookie(JWT_COOKIE_NAME, clearCookieOptions);
+    // Set new cookie
     res.cookie(JWT_COOKIE_NAME, token, cookieOptions);
     return user;
   }
@@ -47,13 +59,17 @@ export class AuthController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const user = await this.auth.validateUser(parsed.data.email, parsed.data.password);
     const token = this.auth.signToken({ id: user.id, role: user.role });
+    
+    // Clear any existing cookie first to avoid conflicts
+    res.clearCookie(JWT_COOKIE_NAME, clearCookieOptions);
+    // Set new cookie
     res.cookie(JWT_COOKIE_NAME, token, cookieOptions);
     return this.auth.profile(user.id);
   }
 
   @Post('logout')
   async logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(JWT_COOKIE_NAME, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
+    res.clearCookie(JWT_COOKIE_NAME, clearCookieOptions);
     return { success: true };
   }
 

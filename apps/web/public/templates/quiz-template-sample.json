@@ -1,0 +1,56 @@
+{
+  "templateName": "Sample Quiz Template",
+  "templateDescription": "Fill this template with your own questions. See documentation for field descriptions.",
+  "categories": [
+    {
+      "categoryName": "Category 1",
+      "displayOrder": 1,
+      "questions": [
+        {
+          "question": "Your question text here?",
+          "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+          ],
+          "correctAnswer": 0,
+          "displayOrder": 1,
+          "difficulty": "MEDIUM",
+          "points": 100,
+          "timeLimit": 30,
+          "explanation": "Optional: Explanation shown after answer is revealed",
+          "imageUrl": ""
+        },
+        {
+          "question": "Another question in this category?",
+          "options": [
+            "First option",
+            "Second option",
+            "Third option"
+          ],
+          "correctAnswer": 1,
+          "displayOrder": 2,
+          "difficulty": "EASY",
+          "points": 100,
+          "timeLimit": 30
+        }
+      ]
+    },
+    {
+      "categoryName": "Category 2",
+      "displayOrder": 2,
+      "questions": [
+        {
+          "question": "Question for second category?",
+          "options": [
+            "Answer 1",
+            "Answer 2"
+          ],
+          "correctAnswer": 0,
+          "displayOrder": 1
+        }
+      ]
+    }
+  ]
+}

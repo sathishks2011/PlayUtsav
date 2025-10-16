@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { getSessionSocket } from '../lib/socket';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import {
   buzzerOpened,
   buzzerPressed,
@@ -13,83 +13,83 @@ export function useBuzzerSync() {
   const dispatch = useAppDispatch();
   const sessionId = useAppSelector((s) => s.session.current?.id);
   const engagementType = useAppSelector((s) => s.session.current?.playerEngagementType);
+  const { socket, isConnected } = useWebSocket();
 
   useEffect(() => {
     if (!sessionId || engagementType !== 'BUZZER') {
       return;
     }
 
-    let mounted = true;
-    let socketInstance: Awaited<ReturnType<typeof getSessionSocket>> | null = null;
+    if (!socket || !isConnected) {
+      console.log('[useBuzzerSync] Waiting for socket connection...');
+      return;
+    }
 
-    getSessionSocket()
-      .then((socket) => {
-        if (!mounted) return;
-        socketInstance = socket;
+    console.log('[useBuzzerSync] Setting up buzzer sync for session:', sessionId);
 
-        socket.onBuzzerOpened(sessionId, (event) => {
-          dispatch(
-            buzzerOpened({
-              sessionId: event.sessionId,
-              isOpen: event.buzzerState.isOpen,
-              buzzerOpenedAt: event.buzzerState.buzzerOpenedAt ?? null,
-              timerDuration: event.buzzerState.timerDuration,
-            })
-          );
-        });
+    socket.onBuzzerOpened(sessionId, (event) => {
+      console.log('[useBuzzerSync] Buzzer opened event received');
+      dispatch(
+        buzzerOpened({
+          sessionId: event.sessionId,
+          isOpen: event.buzzerState.isOpen,
+          buzzerOpenedAt: event.buzzerState.buzzerOpenedAt ?? null,
+          timerDuration: event.buzzerState.timerDuration,
+        })
+      );
+    });
 
-        socket.onBuzzerPressed(sessionId, (event) => {
-          dispatch(
-            buzzerPressed({
-              sessionId: event.sessionId,
-              buzzerPress: event.buzzerPress,
-              buzzPresses: event.buzzerState.buzzPresses,
-              firstBuzzerId: event.buzzerState.firstBuzzerId,
-              lockedForParticipantId: event.buzzerState.lockedForParticipantId,
-              isOpen: event.buzzerState.isOpen,
-            })
-          );
-        });
+    socket.onBuzzerPressed(sessionId, (event) => {
+      console.log('[useBuzzerSync] Buzzer pressed event received');
+      dispatch(
+        buzzerPressed({
+          sessionId: event.sessionId,
+          buzzerPress: event.buzzerPress,
+          buzzPresses: event.buzzerState.buzzPresses,
+          firstBuzzerId: event.buzzerState.firstBuzzerId,
+          lockedForParticipantId: event.buzzerState.lockedForParticipantId,
+          isOpen: event.buzzerState.isOpen,
+        })
+      );
+    });
 
-        socket.onBuzzerClosed(sessionId, (event) => {
-          dispatch(
-            buzzerClosed({
-              sessionId: event.sessionId,
-              lockedForParticipantId: event.buzzerState.lockedForParticipantId,
-            })
-          );
-        });
+    socket.onBuzzerClosed(sessionId, (event) => {
+      console.log('[useBuzzerSync] Buzzer closed event received');
+      dispatch(
+        buzzerClosed({
+          sessionId: event.sessionId,
+          lockedForParticipantId: event.buzzerState.lockedForParticipantId,
+        })
+      );
+    });
 
-        socket.onBuzzerReset(sessionId, (event) => {
-          dispatch(
-            buzzerReset({
-              sessionId: event.sessionId,
-            })
-          );
-        });
+    socket.onBuzzerReset(sessionId, (event) => {
+      console.log('[useBuzzerSync] Buzzer reset event received');
+      dispatch(
+        buzzerReset({
+          sessionId: event.sessionId,
+        })
+      );
+    });
 
-        socket.onBuzzerOverride(sessionId, (event) => {
-          dispatch(
-            buzzerOverride({
-              sessionId: event.sessionId,
-              lockedForParticipantId: event.buzzerState.lockedForParticipantId,
-            })
-          );
-        });
-      })
-      .catch((error) => {
-        console.error('[useBuzzerSync] Failed to initialize buzzer socket listeners', error);
-      });
+    socket.onBuzzerOverride(sessionId, (event) => {
+      console.log('[useBuzzerSync] Buzzer override event received');
+      dispatch(
+        buzzerOverride({
+          sessionId: event.sessionId,
+          lockedForParticipantId: event.buzzerState.lockedForParticipantId,
+        })
+      );
+    });
 
+    // Cleanup
     return () => {
-      mounted = false;
-      if (socketInstance) {
-        socketInstance.offBuzzerOpened(sessionId);
-        socketInstance.offBuzzerPressed(sessionId);
-        socketInstance.offBuzzerClosed(sessionId);
-        socketInstance.offBuzzerReset(sessionId);
-        socketInstance.offBuzzerOverride(sessionId);
-      }
+      console.log('[useBuzzerSync] Cleaning up buzzer sync');
+      socket.offBuzzerOpened(sessionId);
+      socket.offBuzzerPressed(sessionId);
+      socket.offBuzzerClosed(sessionId);
+      socket.offBuzzerReset(sessionId);
+      socket.offBuzzerOverride(sessionId);
     };
-  }, [dispatch, sessionId, engagementType]);
+  }, [dispatch, sessionId, engagementType, socket, isConnected]);
 }

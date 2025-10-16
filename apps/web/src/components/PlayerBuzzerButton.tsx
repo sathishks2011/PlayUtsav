@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { pressBuzzerThunk } from '../store/slices/quizSlice';
+import { soundManager } from '../lib/soundManager';
 
 function computeCountdown(buzzerOpenedAt?: string, timerDuration?: number) {
   if (!buzzerOpenedAt || !timerDuration) return null;
@@ -53,6 +54,10 @@ export function PlayerBuzzerButton() {
 
   const handlePress = () => {
     if (!session || !participantId || disabled) return;
+    
+    // Play buzzer sound
+    soundManager.playSound('buzzer');
+    
     dispatch(pressBuzzerThunk({ sessionId: session.id, participantId }));
   };
 

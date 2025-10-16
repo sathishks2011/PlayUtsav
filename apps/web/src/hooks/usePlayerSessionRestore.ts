@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setPlayerSession, setError } from '../store/slices/sessionSlice';
 import { getSessionSocket } from '../lib/socket';
+import { getApiBaseUrl } from '../lib/config';
 
 /**
  * Restores player session from localStorage on app load.
@@ -35,7 +36,12 @@ export function usePlayerSessionRestore() {
       console.log('[usePlayerSessionRestore] Restoring player session:', sessionId);
 
       // Validate session is still active by fetching it
-      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/sessions/${sessionId}`)
+      getApiBaseUrl()
+        .then((baseUrl) => {
+          return fetch(`${baseUrl}/sessions/${sessionId}`, {
+            credentials: 'include',
+          });
+        })
         .then((res) => {
           if (!res.ok) {
             console.warn('[usePlayerSessionRestore] Session not found, clearing localStorage');

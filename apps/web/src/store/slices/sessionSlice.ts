@@ -62,8 +62,9 @@ const sessionSlice = createSlice({
   initialState,
   reducers: {
     reset: () => {
-      // Clear player session from localStorage
+      // Clear both player and host sessions from localStorage
       localStorage.removeItem('playerSession');
+      localStorage.removeItem('hostSession');
       return initialState;
     },
     setSnapshot(state, action: PayloadAction<Session>) {
@@ -74,6 +75,12 @@ const sessionSlice = createSlice({
       state.current = action.payload;
       state.role = 'HOST';
       state.status = 'ready';
+      
+      // Persist host session to localStorage for refresh recovery
+      localStorage.setItem('hostSession', JSON.stringify({
+        sessionId: action.payload.id,
+        timestamp: Date.now()
+      }));
     },
     setPlayerSession(state, action: PayloadAction<{ session: Session; participantId: string }>) {
       state.current = action.payload.session;
@@ -96,6 +103,12 @@ const sessionSlice = createSlice({
         state.current = action.payload;
         state.role = 'HOST';
         state.status = 'ready';
+        
+        // Persist host session to localStorage for refresh recovery
+        localStorage.setItem('hostSession', JSON.stringify({
+          sessionId: action.payload.id,
+          timestamp: Date.now()
+        }));
       })
       .addCase(createSessionThunk.rejected, (state, action) => {
         state.status = 'error';
@@ -123,9 +136,45 @@ const sessionSlice = createSlice({
         state.status = 'error';
         state.error = action.error.message;
       })
+      .addCase(addTeamThunk.pending, (state) => {
+        console.log('[Redux] Adding team...');
+      })
       .addCase(addTeamThunk.fulfilled, (state, action) => {
+        console.log('[Redux] Team added successfully:', action.payload);
         if (!state.current) return;
         state.current.teams = [...state.current.teams, { ...action.payload, participants: [] }];
+      })
+      .addCase(addTeamThunk.rejected, (state, action) => {
+        console.error('[Redux] Failed to add team:', action.error);
+        state.error = action.error.message || 'Failed to add team';
+      })
+      .addCase(assignParticipantToTeamThunk.pending, (state) => {
+        console.log('[Redux] Assigning participant to team...');
+      })
+      .addCase(assignParticipantToTeamThunk.fulfilled, (state, action) => {
+        console.log('[Redux] Participant assigned successfully:', action.payload);
+        if (!state.current) return;
+        
+        // Update the participant's teamId in the state
+        const participant = state.current.participants.find(p => p.id === action.payload.participantId);
+        if (participant) {
+          participant.teamId = action.payload.teamId;
+        }
+        
+        // Move participant between teams in the teams array
+        state.current.teams.forEach(team => {
+          // Remove participant from all teams first
+          team.participants = team.participants.filter(p => p.id !== action.payload.participantId);
+          
+          // Add to new team if teamId matches
+          if (action.payload.teamId && team.id === action.payload.teamId && participant) {
+            team.participants.push(participant);
+          }
+        });
+      })
+      .addCase(assignParticipantToTeamThunk.rejected, (state, action) => {
+        console.error('[Redux] Failed to assign participant:', action.error);
+        state.error = action.error.message || 'Failed to assign participant to team';
       });
   },
 });

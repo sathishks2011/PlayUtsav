@@ -42,7 +42,12 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
   async emitSessionUpdate(sessionId: string) {
     const snapshot = await this.sessionsService.getSnapshot(sessionId);
     if (!snapshot) return;
-    this.server.to(this.room(sessionId)).emit('session:update', snapshot);
+    
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting session:update to room: ${roomName}`);
+    this.logger.log(`[SessionGateway] Snapshot has ${(snapshot as any).scores?.length || 0} score records for ${(snapshot as any).teams?.length || 0} teams`);
+    
+    this.server.to(roomName).emit('session:update', snapshot);
   }
 
   async emitQuizUpdate(sessionId: string, state: unknown) {
@@ -128,6 +133,23 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
       participantId,
       buzzerState,
       timestamp: new Date().toISOString(),
+    });
+  }
+
+  async emitScoreAnimated(sessionId: string, payload: {
+    teamId: string | null;
+    points: number;
+    isBonus: boolean;
+    reason?: string;
+  }) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting score:animated to room: ${roomName} - points: ${payload.points}, isBonus: ${payload.isBonus}`);
+    this.server.to(roomName).emit('score:animated', {
+      teamId: payload.teamId,
+      points: payload.points,
+      isBonus: payload.isBonus,
+      timestamp: Date.now(),
+      reason: payload.reason,
     });
   }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { getSessionSocket } from '../lib/socket';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import { setSnapshot } from '../store/slices/sessionSlice';
 import { soundManager } from '../lib/soundManager';
 import type { ScoreAnimationEvent } from '@pkg/core';
@@ -9,64 +9,51 @@ export function useSessionSync() {
   const sessionId = useAppSelector((s) => s.session.current?.id);
   const soundSettings = useAppSelector((s) => s.settings.sounds);
   const dispatch = useAppDispatch();
+  const { socket, isConnected } = useWebSocket();
   const [scoreAnimation, setScoreAnimation] = useState<ScoreAnimationEvent | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    let activeSessionId = sessionId;
-    let socketRef: Awaited<ReturnType<typeof getSessionSocket>> | null = null;
+    if (!sessionId || !socket || !isConnected) {
+      console.log('[useSessionSync] Waiting for socket connection...');
+      return;
+    }
 
-    if (!sessionId) return () => {};
+    console.log('[useSessionSync] Setting up session sync for:', sessionId);
 
-    getSessionSocket()
-      .then((socket) => {
-        if (!mounted) return;
-        socketRef = socket;
-        
-        // Subscribe to session updates
-        socket.subscribe(sessionId, (snapshot) => {
-          if (snapshot) {
-            dispatch(setSnapshot(snapshot));
-          }
-        });
-
-        // Listen for score animation events
-        const handleScoreAnimation = (...args: unknown[]) => {
-          const event = args[0] as ScoreAnimationEvent;
-          console.log('[useSessionSync] Score animation event:', event);
-          console.log('[useSessionSync] Sound settings:', {
-            soundsEnabled: soundSettings.soundsEnabled,
-            coinSoundEnabled: soundSettings.coinSoundEnabled,
-            masterVolume: soundSettings.masterVolume,
-          });
-          setScoreAnimation(event);
-          
-          // Play coin sound when score animation triggers
-          if (soundSettings.soundsEnabled && soundSettings.coinSoundEnabled) {
-            console.log('[useSessionSync] Triggering coin sound...');
-            soundManager.playSound('coin', soundSettings.masterVolume / 100);
-          } else {
-            console.warn('[useSessionSync] Coin sound blocked by settings');
-          }
-          
-          // Clear animation after 3 seconds
-          setTimeout(() => setScoreAnimation(null), 3000);
-        };
-
-        socket.on('score:animated', handleScoreAnimation);
-      })
-      .catch((err) => {
-        console.error('Session socket connection failed', err);
-      });
-
-    return () => {
-      mounted = false;
-      if (socketRef && activeSessionId) {
-        socketRef.unsubscribe(activeSessionId);
-        socketRef.off('score:animated');
+    // Subscribe to session updates
+    socket.subscribe(sessionId, (snapshot) => {
+      if (snapshot) {
+        console.log('[useSessionSync] Received session update');
+        dispatch(setSnapshot(snapshot));
       }
+    });
+
+    // Listen for score animation events
+    const handleScoreAnimation = (...args: unknown[]) => {
+      const event = args[0] as ScoreAnimationEvent;
+      console.log('[useSessionSync] Score animation event:', event);
+      setScoreAnimation(event);
+      
+      // Play appropriate sound based on points (positive = correct, negative = wrong)
+      if (soundSettings.soundsEnabled && soundSettings.coinSoundEnabled) {
+        const soundType = event.points >= 0 ? 'coin' : 'coin_wrong';
+        console.log(`[useSessionSync] Triggering ${soundType} sound for ${event.points} points`);
+        soundManager.playSound(soundType, soundSettings.masterVolume / 100);
+      }
+      
+      // Clear animation after 3 seconds
+      setTimeout(() => setScoreAnimation(null), 3000);
     };
-  }, [dispatch, sessionId, soundSettings]);
+
+    socket.on('score:animated', handleScoreAnimation);
+
+    // Cleanup
+    return () => {
+      console.log('[useSessionSync] Cleaning up session sync');
+      socket.unsubscribe(sessionId);
+      socket.off('score:animated', handleScoreAnimation);
+    };
+  }, [dispatch, sessionId, socket, isConnected, soundSettings]);
 
   return { scoreAnimation };
 }

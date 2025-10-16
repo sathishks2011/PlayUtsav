@@ -1,4 +1,14 @@
-import type { Session, Team, QuizState } from '@pkg/core';
+import type { 
+  Session, 
+  Team, 
+  QuizState, 
+  QuizTemplateDTO, 
+  QuizTemplateResponse,
+  UpdateQuestionDTO,
+  QuestionResponse,
+  CategoryResponse,
+  RoundInfo
+} from '@pkg/core';
 import { getApiBaseUrl } from './config';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -17,6 +27,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function listSessions(): Promise<Session[]> {
   return request('/sessions');
+}
+
+export function getSessionById(sessionId: string): Promise<Session> {
+  return request(`/sessions/${sessionId}`);
 }
 
 export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
@@ -163,4 +177,84 @@ export function logout() {
 
 export function getProfile() {
   return request<User | null>('/auth/me');
+}
+
+// Quiz Template API
+export function uploadQuizTemplate(template: QuizTemplateDTO) {
+  return request<QuizTemplateResponse>('/quiz-templates', {
+    method: 'POST',
+    body: JSON.stringify(template),
+  });
+}
+
+export function listQuizTemplates() {
+  return request<QuizTemplateResponse[]>('/quiz-templates');
+}
+
+export function getQuizTemplate(templateId: string) {
+  return request<QuizTemplateResponse>(`/quiz-templates/${templateId}`);
+}
+
+export function updateQuizQuestion(questionId: string, data: UpdateQuestionDTO) {
+  return request<QuestionResponse>(`/quiz-templates/questions/${questionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteQuizTemplate(templateId: string) {
+  return request<void>(`/quiz-templates/${templateId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function getQuestionsByCategory(categoryId: string) {
+  return request<QuestionResponse[]>(`/quiz-templates/categories/${categoryId}/questions`);
+}
+
+// Session-Template Integration API
+export function attachQuizTemplate(sessionId: string, templateId: string) {
+  return request<Session>(`/sessions/${sessionId}/attach-template`, {
+    method: 'POST',
+    body: JSON.stringify({ templateId }),
+  });
+}
+
+export function updateRound(sessionId: string, categoryIndex: number, questionIndex: number) {
+  return request<Session>(`/sessions/${sessionId}/round`, {
+    method: 'POST',
+    body: JSON.stringify({ categoryIndex, questionIndex }),
+  });
+}
+
+export function getRoundQuestions(sessionId: string) {
+  return request<{
+    session: { id: string; currentCategoryIndex: number; currentQuestionIndex: number };
+    template: { id: string; name: string };
+    currentCategory: { id: string; name: string; displayOrder: number };
+    questions: QuestionResponse[];
+    totalCategories: number;
+  }>(`/sessions/${sessionId}/round/questions`);
+}
+
+export function advanceToNextRound(sessionId: string) {
+  return request<{
+    currentCategoryIndex: number;
+    currentQuestionIndex: number;
+    totalCategories: number;
+    isComplete: boolean;
+  }>(`/sessions/${sessionId}/round/next`, {
+    method: 'PUT',
+  });
+}
+
+export function advanceToPreviousRound(sessionId: string) {
+  return request<{
+    currentCategoryIndex: number;
+    currentQuestionIndex: number;
+    totalCategories: number;
+    isComplete: boolean;
+  }>(`/sessions/${sessionId}/round/previous`, {
+    method: 'PUT',
+  });
 }

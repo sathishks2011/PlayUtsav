@@ -1,49 +1,47 @@
 import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { getSessionSocket } from '../lib/socket';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import { setQuizState, clearQuiz } from '../store/slices/quizSlice';
 import { fetchQuiz } from '../lib/api';
 
 export function useQuizSync() {
   const sessionId = useAppSelector((s) => s.session.current?.id);
   const dispatch = useAppDispatch();
+  const { socket, isConnected } = useWebSocket();
 
   useEffect(() => {
-    let active = true;
     if (!sessionId) {
       dispatch(clearQuiz());
-      return () => {};
+      return;
+    }
+
+    if (!socket || !isConnected) {
+      console.log('[useQuizSync] Waiting for socket connection...');
+      return;
     }
 
     console.log('[useQuizSync] Setting up quiz sync for session:', sessionId);
     
-    getSessionSocket()
-      .then((socket) => {
-        if (!active) return;
-        console.log('[useQuizSync] Socket obtained, subscribing to quiz updates');
-        socket.onQuiz(sessionId, (state) => {
-          console.log('[useQuizSync] Received quiz:update event:', state);
-          dispatch(setQuizState(state));
-        });
-      })
-      .catch((err) => {
-        console.error('Quiz socket subscription failed', err);
-      });
+    // Subscribe to quiz updates
+    socket.onQuiz(sessionId, (state) => {
+      console.log('[useQuizSync] Received quiz:update event:', state);
+      dispatch(setQuizState(state));
+    });
 
+    // Fetch initial quiz state
     fetchQuiz(sessionId)
       .then((state) => {
-        if (!active) return;
+        console.log('[useQuizSync] Fetched initial quiz state');
         dispatch(setQuizState(state));
       })
       .catch((err) => {
-        console.warn('Unable to fetch quiz state', err);
+        console.warn('[useQuizSync] Unable to fetch quiz state:', err);
       });
 
+    // Cleanup
     return () => {
-      active = false;
-      getSessionSocket()
-        .then((socket) => socket.offQuiz(sessionId))
-        .catch(() => {});
+      console.log('[useQuizSync] Cleaning up quiz sync');
+      socket.offQuiz(sessionId);
     };
-  }, [dispatch, sessionId]);
+  }, [dispatch, sessionId, socket, isConnected]);
 }

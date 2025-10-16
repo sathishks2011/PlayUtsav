@@ -8,12 +8,13 @@ import { SessionsService } from '../services/sessions.service';
 import { QuizService } from '../services/quiz.service';
 import { SessionGateway } from '../gateways/session.gateway';
 import { AuthModule } from '../auth/auth.module';
+import { QuizTemplateModule } from './quiz-template/quiz-template.module';
 import { ScoringConfigService } from '../services/scoring/scoring-config.service';
 import { SessionScoringService } from '../services/scoring/session-scoring.service';
 import { ScoreCalculationService } from '../services/scoring/score-calculation.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, QuizTemplateModule],
   controllers: [
     AppController,
     SessionsController,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Landing } from './screens/Landing';
 import { HostLobby } from './screens/HostLobby';
@@ -8,12 +8,15 @@ import { HostSignup } from './screens/HostSignup';
 import { HostDashboard } from './screens/HostDashboard';
 import { HostPortal } from './components/HostPortal';
 import { ScoreAnimation } from './components/ScoreAnimation';
+import { ConnectionStatus } from './components/ConnectionStatus';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 import { useSessionSync } from './hooks/useSessionSync';
 import { useThemeSync } from './hooks/useThemeSync';
 import { useLocaleSync } from './hooks/useLocaleSync';
 import { useQuizSync } from './hooks/useQuizSync';
 import { useSoundManager } from './hooks/useSoundManager';
 import { usePlayerSessionRestore } from './hooks/usePlayerSessionRestore';
+import { useHostSessionRestore } from './hooks/useHostSessionRestore';
 import { useAuth } from './hooks/useAuth';
 import { useAppSelector } from './store/hooks';
 import { ThemeSwitcher } from './components/ThemeSwitcher';
@@ -21,26 +24,44 @@ import { LocaleSwitcher } from './components/LocaleSwitcher';
 
 type View = 'landing' | 'host-login' | 'host-signup' | 'host-dashboard';
 
-export default function App() {
+function AppContent() {
   const role = useAppSelector((s) => s.session.role);
   const status = useAppSelector((s) => s.session.status);
   const { user, isAuthenticated } = useAuth();
   const [view, setView] = useState<View>('landing');
+  const [hasStoredSession, setHasStoredSession] = useState<boolean>(false);
+
+  // Check for stored session on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('hostSession');
+    setHasStoredSession(!!stored);
+  }, []);
 
   usePlayerSessionRestore();
+  useHostSessionRestore();
   const { scoreAnimation } = useSessionSync();
   useThemeSync();
   useLocaleSync();
   useQuizSync();
   useSoundManager();
 
-  // Auto-navigate authenticated hosts to dashboard
-  if (isAuthenticated && user?.role === 'HOST' && view !== 'host-dashboard' && role !== 'HOST') {
-    setView('host-dashboard');
-  }
+  // Auto-navigate authenticated hosts to dashboard (when no active session)
+  // This handles successful login -> redirect to dashboard
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'HOST' && role !== 'HOST') {
+      if (view !== 'host-dashboard') {
+        setView('host-dashboard');
+      }
+    } else if (!isAuthenticated && role === null && view !== 'landing' && status !== 'loading') {
+      // Reset to landing when logged out (but not while still loading auth state)
+      setView('landing');
+    }
+  }, [isAuthenticated, user?.role, role, status]); // Removed 'view' from deps to prevent infinite loop
 
   return (
     <div className="min-h-screen text-[var(--fg)]">
+      {/* Connection Status Banner */}
+      <ConnectionStatus />
       <header className="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">
@@ -61,8 +82,8 @@ export default function App() {
 
       <main className="px-6 pb-10 flex justify-center">
         {/* Session Views - Active Session */}
-  {role === 'HOST' && <HostPortal />}
-  {role === 'PLAYER' && <PlayerLobby />}
+        {(role === 'HOST' || (isAuthenticated && user?.role === 'HOST') || hasStoredSession) && <HostPortal />}
+        {role === 'PLAYER' && <PlayerLobby />}
 
         {/* Auth Views - Host Portal */}
         {role === null && view === 'host-login' && (
@@ -77,10 +98,8 @@ export default function App() {
             onCancel={() => setView('landing')}
           />
         )}
-  {role === null && view === 'host-dashboard' && isAuthenticated && <HostPortal />}
-
         {/* Landing - Player Join or Host CTA */}
-        {role === null && view === 'landing' && status !== 'loading' && (
+        {role === null && view === 'landing' && status !== 'loading' && !hasStoredSession && (
           <div className="w-full max-w-5xl space-y-4">
             {/* Host CTA */}
             {!isAuthenticated && (
@@ -125,29 +144,19 @@ export default function App() {
       
       {/* Score Animation Overlay */}
       {scoreAnimation && (() => {
-        // Try to find quiz panel and the specific team's score element
-        const quizPanel = document.getElementById('quiz-panel');
+        // Find the specific team's score element in the scoreboard
         const teamScoreElement = document.getElementById(`team-score-${scoreAnimation.teamId}`);
         const scoreboard = document.getElementById('player-scoreboard');
         
-        // Calculate start position (center of quiz panel or middle of screen)
-        let startX = window.innerWidth / 2;
-        let startY = window.innerHeight / 2;
-        if (quizPanel) {
-          const rect = quizPanel.getBoundingClientRect();
-          startX = rect.left + rect.width / 2;
-          startY = rect.top + rect.height / 2;
-        }
-        
-        // Calculate target position (specific team score or scoreboard center)
-        let targetX = window.innerWidth - 100;
-        let targetY = 100;
+        // Calculate position (center of the team's score or scoreboard center)
+        let x = window.innerWidth - 100;
+        let y = 100;
         
         if (teamScoreElement) {
-          // Target the exact score number element
+          // Position at the exact score number element
           const rect = teamScoreElement.getBoundingClientRect();
-          targetX = rect.left + rect.width / 2;
-          targetY = rect.top + rect.height / 2;
+          x = rect.left + rect.width / 2;
+          y = rect.top + rect.height / 2;
           
           // Add pulse animation to the score element
           teamScoreElement.style.transition = 'transform 0.3s ease, color 0.3s ease';
@@ -161,23 +170,29 @@ export default function App() {
         } else if (scoreboard) {
           // Fallback to scoreboard center if specific score not found
           const rect = scoreboard.getBoundingClientRect();
-          targetX = rect.left + rect.width / 2;
-          targetY = rect.top + 40;
+          x = rect.left + rect.width / 2;
+          y = rect.top + 40;
         }
         
         return (
           <ScoreAnimation
-            startX={startX}
-            startY={startY}
-            targetX={targetX}
-            targetY={targetY}
-            points={scoreAnimation.points}
+            x={x}
+            y={y}
+            points={scoreAnimation.points || 0}
             isBonus={scoreAnimation.isBonus}
             onComplete={() => {}}
           />
         );
       })()}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <WebSocketProvider>
+      <AppContent />
+    </WebSocketProvider>
   );
 }
 

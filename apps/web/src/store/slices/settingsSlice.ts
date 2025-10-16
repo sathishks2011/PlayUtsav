@@ -5,6 +5,8 @@ export type SoundSettings = {
   soundsEnabled: boolean; // Master toggle
   coinSoundEnabled: boolean;
   coinSoundPath: string;
+  coinWrongSoundEnabled: boolean;
+  coinWrongSoundPath: string;
   buzzerSoundEnabled: boolean;
   buzzerSoundPath: string;
   backgroundMusicEnabled: boolean;
@@ -51,6 +53,8 @@ const initialState: SettingsState = {
     soundsEnabled: true,
     coinSoundEnabled: true,
     coinSoundPath: '/sounds/coin.mp3',
+    coinWrongSoundEnabled: true,
+    coinWrongSoundPath: '/sounds/coin_wrong.mp3',
     buzzerSoundEnabled: true,
     buzzerSoundPath: '/sounds/buzzer.mp3',
     backgroundMusicEnabled: false,
@@ -99,6 +103,12 @@ const settingsSlice = createSlice({
     },
     setCoinSoundPath(state, action: PayloadAction<string>) {
       state.sounds.coinSoundPath = action.payload;
+    },
+    setCoinWrongSoundEnabled(state, action: PayloadAction<boolean>) {
+      state.sounds.coinWrongSoundEnabled = action.payload;
+    },
+    setCoinWrongSoundPath(state, action: PayloadAction<string>) {
+      state.sounds.coinWrongSoundPath = action.payload;
     },
     setBuzzerSoundEnabled(state, action: PayloadAction<boolean>) {
       state.sounds.buzzerSoundEnabled = action.payload;
@@ -151,6 +161,8 @@ export const {
   setSoundsEnabled,
   setCoinSoundEnabled,
   setCoinSoundPath,
+  setCoinWrongSoundEnabled,
+  setCoinWrongSoundPath,
   setBuzzerSoundEnabled,
   setBuzzerSoundPath,
   setBackgroundMusicEnabled,

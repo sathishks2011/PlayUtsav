@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { submitQuizAnswerThunk } from '../store/slices/quizSlice';
+import { soundManager } from '../lib/soundManager';
 
 export function PlayerQuizPanel() {
   const dispatch = useAppDispatch();
@@ -19,6 +20,17 @@ export function PlayerQuizPanel() {
     setSelected(null);
     setSubmitted(false);
   }, [quiz?.questionId, quiz?.status]);
+
+  // Play wrong answer sound when quiz is revealed and player got it wrong
+  useEffect(() => {
+    if (!quiz || quiz.status !== 'revealed' || !submitted || selected == null) return;
+    
+    const isCorrect = quiz.correctOption === selected;
+    if (!isCorrect) {
+      // Play wrong answer sound
+      soundManager.playSound('coin_wrong');
+    }
+  }, [quiz?.status, quiz?.correctOption, selected, submitted]);
 
   useEffect(() => {
     if (!quiz) return;
