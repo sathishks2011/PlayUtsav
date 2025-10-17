@@ -616,8 +616,8 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             >
               <FormattedMessage id="hostQuiz.nextQuestion" defaultMessage="Next question" />
             </button>
-            {/* Skip Question button - only show when quiz is running */}
-            {running && (
+            {/* Skip Question button - show when quiz is running or revealed */}
+            {(running || revealed) && (
               <button
                 type="button"
                 className="px-4 py-2 rounded border border-orange-500/40 bg-orange-500/10 text-orange-300"

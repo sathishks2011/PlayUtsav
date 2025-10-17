@@ -44,7 +44,7 @@ const handleSkipQuestion = async () => {
 
 #### UI Changes
 - **New Button**: "⏭️ Skip Question" button added to host controls
-- **Visibility**: Only shows when a quiz is currently running
+- **Visibility**: Shows when quiz is running OR revealed (any active quiz state)
 - **Styling**: Orange theme (`border-orange-500/40 bg-orange-500/10 text-orange-300`)
 - **Position**: Between "Next Question" and round navigation buttons
 
@@ -94,10 +94,10 @@ Running Quiz → Skip Button Click → Reveal Quiz (null answer) → Wait 500ms 
 - ✅ Host can start the next question when ready
 
 ### Button States:
-- **Enabled**: When quiz is running and not loading
-- **Disabled**: When loading or no quiz running
-- **Visible**: Only when `quizState.status === 'running'`
-- **Hidden**: When quiz is not running or already revealed
+- **Enabled**: When quiz is running or revealed, and not loading
+- **Disabled**: When loading
+- **Visible**: When `quizState.status === 'running'` OR `quizState.status === 'revealed'`
+- **Hidden**: When no active quiz (status is null or not running/revealed)
 
 ## Integration with Existing Features
 
