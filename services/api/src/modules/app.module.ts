@@ -9,12 +9,13 @@ import { QuizService } from '../services/quiz.service';
 import { SessionGateway } from '../gateways/session.gateway';
 import { AuthModule } from '../auth/auth.module';
 import { QuizTemplateModule } from './quiz-template/quiz-template.module';
+import { BioscopeModule } from './bioscope/bioscope.module';
 import { ScoringConfigService } from '../services/scoring/scoring-config.service';
 import { SessionScoringService } from '../services/scoring/session-scoring.service';
 import { ScoreCalculationService } from '../services/scoring/score-calculation.service';
 
 @Module({
-  imports: [AuthModule, QuizTemplateModule],
+  imports: [AuthModule, QuizTemplateModule, BioscopeModule],
   controllers: [
     AppController,
     SessionsController,
