@@ -244,8 +244,22 @@ export class SessionsController {
   async deleteSession(@Param('id') sessionId: string) {
     const result = await this.sessions.deleteSession(sessionId);
     
-    console.log(`[SessionsController] Session ${sessionId} deleted`);
+    console.log(`[SessionsController] Session ${sessionId} soft-deleted`);
     
     return result;
+  }
+
+  @Put(':id/restore')
+  async restoreSession(@Param('id') sessionId: string) {
+    const result = await this.sessions.restoreSession(sessionId);
+    
+    console.log(`[SessionsController] Session ${sessionId} restored`);
+    
+    return result;
+  }
+
+  @Get('/deleted/list')
+  async listDeletedSessions() {
+    return this.sessions.listDeletedSessions();
   }
 }

@@ -39,6 +39,16 @@ export function deleteSession(sessionId: string): Promise<{ success: boolean; me
   });
 }
 
+export function restoreSession(sessionId: string): Promise<{ success: boolean; message: string }> {
+  return request(`/sessions/${sessionId}/restore`, {
+    method: 'PUT',
+  });
+}
+
+export function listDeletedSessions(): Promise<Session[]> {
+  return request('/sessions/deleted/list');
+}
+
 export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
   return request<Session>('/sessions', {
     method: 'POST',

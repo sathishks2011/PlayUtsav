@@ -57,6 +57,7 @@ model Session {
   maxPlayers            Int             @default(4)
   language              String          @default("en")
   playerEngagementType  String          @default("CHOICE_ANSWER")
+  deletedAt             DateTime?
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   teams                 Team[]

@@ -11,6 +11,9 @@ export class SessionsService {
 
   list() {
     return this.prisma.session.findMany({
+      where: {
+        deletedAt: null, // Only return non-deleted sessions
+      },
       include: {
         teams: { include: { participants: true } },
         participants: true,
@@ -389,14 +392,64 @@ export class SessionsService {
       throw new NotFoundException('Session not found');
     }
 
-    // Delete session (cascade will handle related records due to Prisma schema)
-    await this.prisma.session.delete({
+    // Check if already soft-deleted
+    if (session.deletedAt) {
+      throw new BadRequestException('Session is already deleted');
+    }
+
+    // Soft delete: Set deletedAt timestamp instead of actually deleting
+    await this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    console.log(`[SessionsService] Soft-deleted session ${sessionId}`);
+
+    return { success: true, message: 'Session deleted successfully' };
+  }
+
+  async restoreSession(sessionId: string) {
+    // Check if session exists
+    const session = await this.prisma.session.findUnique({
       where: { id: sessionId },
     });
 
-    console.log(`[SessionsService] Deleted session ${sessionId}`);
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
 
-    return { success: true, message: 'Session deleted successfully' };
+    // Check if session is actually deleted
+    if (!session.deletedAt) {
+      throw new BadRequestException('Session is not deleted');
+    }
+
+    // Restore: Clear deletedAt timestamp
+    await this.prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        deletedAt: null,
+      },
+    });
+
+    console.log(`[SessionsService] Restored session ${sessionId}`);
+
+    return { success: true, message: 'Session restored successfully' };
+  }
+
+  async listDeletedSessions() {
+    return this.prisma.session.findMany({
+      where: {
+        deletedAt: { not: null }, // Only return deleted sessions
+      },
+      include: {
+        teams: { include: { participants: true } },
+        participants: true,
+        scores: true,
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
   }
 
   private async generateUniqueCode() {

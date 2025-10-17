@@ -99,7 +99,7 @@ export function HostDashboard() {
 
   const handleDeleteSession = async (sessionId: string, sessionCode: string) => {
     const confirmMessage = intl.formatMessage(
-      { id: 'host.session.deleteConfirm', defaultMessage: 'Are you sure you want to delete session {code}? This action cannot be undone.' },
+      { id: 'host.session.deleteConfirm', defaultMessage: 'Are you sure you want to delete session {code}? You can restore it later if needed.' },
       { code: sessionCode }
     );
     
@@ -116,7 +116,7 @@ export function HostDashboard() {
       
       // Show success message
       alert(intl.formatMessage(
-        { id: 'host.session.deleteSuccess', defaultMessage: 'Session {code} deleted successfully' },
+        { id: 'host.session.deleteSuccess', defaultMessage: 'Session {code} archived successfully. You can restore it from the archived sessions list.' },
         { code: sessionCode }
       ));
     } catch (err) {
