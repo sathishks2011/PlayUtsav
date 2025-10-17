@@ -60,6 +60,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
   // Player input state (only used when allowPlayerInput is true)
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedAnswer, setSubmittedAnswer] = useState<number | null>(null); // Track which answer was actually submitted
 
   // Use template questions if available, otherwise fall back to sample questions
   const question = useMemo(() => {
@@ -233,7 +234,8 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     if (!allowPlayerInput || !quizState) return;
     setSelected(null);
     setSubmitted(false);
-  }, [quizState?.questionId, quizState?.status, allowPlayerInput]);
+    setSubmittedAnswer(null);
+  }, [quizState?.questionId, allowPlayerInput]); // Removed quizState?.status to preserve submitted answer when revealed
 
   if (!session) return null;
 
@@ -251,6 +253,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     if (isBuzzerMode && !canPlayerSubmit) return; // Block submit if buzzer mode and not locked to player
     dispatch(submitQuizAnswerThunk({ sessionId, participantId, answer: selected }));
     setSubmitted(true);
+    setSubmittedAnswer(selected); // Save which answer was submitted
   };
 
   // Handle round/question navigation (for template mode)
@@ -504,6 +507,36 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     }
   };
 
+  // Skip current question and move to next one
+  const handleSkipQuestion = async () => {
+    if (!session || loading) return;
+    
+    console.log('[HostQuizPanel] Skipping current question...');
+    
+    // If quiz is running, reveal it first with no correct answer (null)
+    // This will end the current quiz properly
+    if (quizState && quizState.status === 'running') {
+      try {
+        await dispatch(
+          revealQuizThunk({
+            sessionId: session.id,
+            correctOption: null, // No correct answer when skipping
+          })
+        ).unwrap();
+        
+        console.log('[HostQuizPanel] Quiz revealed (skipped), moving to next question...');
+        
+        // Wait a moment for the reveal to process
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error('[HostQuizPanel] Failed to reveal quiz before skipping:', error);
+      }
+    }
+    
+    // Now move to next question
+    handleNextQuestion();
+  };
+
   const revealed = quizState?.status === 'revealed';
   const running = quizState?.status === 'running';
   const progress = (() => {
@@ -583,6 +616,18 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             >
               <FormattedMessage id="hostQuiz.nextQuestion" defaultMessage="Next question" />
             </button>
+            {/* Skip Question button - only show when quiz is running */}
+            {running && (
+              <button
+                type="button"
+                className="px-4 py-2 rounded border border-orange-500/40 bg-orange-500/10 text-orange-300"
+                onClick={handleSkipQuestion}
+                disabled={loading}
+                title="Skip current question and move to next"
+              >
+                <FormattedMessage id="hostQuiz.skipQuestion" defaultMessage="⏭️ Skip Question" />
+              </button>
+            )}
             {/* Manual Round Navigation buttons - only show when using template */}
             {usingTemplate && (
               <>
@@ -701,34 +746,49 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                     />
                   </div>
                 )}
-                {quizState.options.map((option, idx) => (
-                  <label
-                    key={option}
-                    className={`flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 ${
-                      canPlayerSubmit && !revealed && !submitted ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-                    } ${
-                      revealed && idx === quizState.correctOption
-                        ? 'bg-emerald-500/20 border-emerald-400/40'
-                        : 'bg-black/20'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="player-answer"
-                      value={idx}
-                      checked={selected === idx}
-                      onChange={() => setSelected(idx)}
-                      disabled={revealed || submitted || !canPlayerSubmit}
-                      className="cursor-pointer"
-                    />
-                    <span className="flex-1">{option}</span>
-                    {revealed && idx === quizState.correctOption && (
-                      <span className="text-xs uppercase tracking-[0.2em] text-emerald-200">
-                        <FormattedMessage id="hostQuiz.correct" defaultMessage="Correct" />
+                {quizState.options.map((option, idx) => {
+                  const isCorrect = revealed && idx === quizState.correctOption;
+                  // Use submittedAnswer (not selected) to show which answer the player actually submitted
+                  const isWrongSelection = revealed && submittedAnswer === idx && quizState.correctOption !== idx;
+                  
+                  return (
+                    <label
+                      key={option}
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                        canPlayerSubmit && !revealed && !submitted ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
+                      } ${
+                        isCorrect
+                          ? 'bg-emerald-500/20 border-emerald-400/40'
+                          : isWrongSelection
+                          ? 'bg-red-500/20 border-red-400/40'
+                          : 'border-white/10 bg-black/20'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="player-answer"
+                        value={idx}
+                        checked={selected === idx}
+                        onChange={() => setSelected(idx)}
+                        disabled={revealed || submitted || !canPlayerSubmit}
+                        className="cursor-pointer"
+                      />
+                      <span className={`flex-1 ${isWrongSelection ? 'text-red-300' : ''}`}>
+                        {option}
                       </span>
-                    )}
-                  </label>
-                ))}
+                      {isCorrect && (
+                        <span className="text-xs uppercase tracking-[0.2em] text-emerald-200 flex items-center gap-1">
+                          ✓ <FormattedMessage id="hostQuiz.correct" defaultMessage="Correct" />
+                        </span>
+                      )}
+                      {isWrongSelection && (
+                        <span className="text-xs uppercase tracking-[0.2em] text-red-300 flex items-center gap-1">
+                          ✗ <FormattedMessage id="hostQuiz.wrong" defaultMessage="Wrong" />
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
                 {!submitted && !revealed && (
                   <button
                     type="submit"

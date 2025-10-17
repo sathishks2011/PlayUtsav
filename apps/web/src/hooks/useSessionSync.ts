@@ -32,17 +32,24 @@ export function useSessionSync() {
     const handleScoreAnimation = (...args: unknown[]) => {
       const event = args[0] as ScoreAnimationEvent;
       console.log('[useSessionSync] Score animation event:', event);
-      setScoreAnimation(event);
       
-      // Play appropriate sound based on points (positive = correct, negative = wrong)
+      // Only show animation for positive points (correct answers)
+      // Wrong answers (0 points) should not show animation
+      if (event.points > 0) {
+        setScoreAnimation(event);
+        // Clear animation after 3 seconds
+        setTimeout(() => setScoreAnimation(null), 3000);
+      }
+      
+      // Play appropriate sound based on points:
+      // - 0 points = wrong answer (coin_wrong)
+      // - positive points = correct answer (coin)
+      // - negative points = penalty (coin_wrong)
       if (soundSettings.soundsEnabled && soundSettings.coinSoundEnabled) {
-        const soundType = event.points >= 0 ? 'coin' : 'coin_wrong';
+        const soundType = event.points > 0 ? 'coin' : 'coin_wrong';
         console.log(`[useSessionSync] Triggering ${soundType} sound for ${event.points} points`);
         soundManager.playSound(soundType, soundSettings.masterVolume / 100);
       }
-      
-      // Clear animation after 3 seconds
-      setTimeout(() => setScoreAnimation(null), 3000);
     };
 
     socket.on('score:animated', handleScoreAnimation);

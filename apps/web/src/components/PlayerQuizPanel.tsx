@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { submitQuizAnswerThunk } from '../store/slices/quizSlice';
-import { soundManager } from '../lib/soundManager';
 
 export function PlayerQuizPanel() {
   const dispatch = useAppDispatch();
@@ -13,24 +12,16 @@ export function PlayerQuizPanel() {
   const session = useAppSelector((s) => s.session.current);
   const [selected, setSelected] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedAnswer, setSubmittedAnswer] = useState<number | null>(null); // Track which answer was actually submitted
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
+  // Reset state only when question changes, NOT when status changes
   useEffect(() => {
     if (!quiz) return;
     setSelected(null);
     setSubmitted(false);
-  }, [quiz?.questionId, quiz?.status]);
-
-  // Play wrong answer sound when quiz is revealed and player got it wrong
-  useEffect(() => {
-    if (!quiz || quiz.status !== 'revealed' || !submitted || selected == null) return;
-    
-    const isCorrect = quiz.correctOption === selected;
-    if (!isCorrect) {
-      // Play wrong answer sound
-      soundManager.playSound('coin_wrong');
-    }
-  }, [quiz?.status, quiz?.correctOption, selected, submitted]);
+    setSubmittedAnswer(null);
+  }, [quiz?.questionId]);
 
   useEffect(() => {
     if (!quiz) return;
@@ -62,6 +53,7 @@ export function PlayerQuizPanel() {
     if (selected == null || quiz.status !== 'running' || !sessionId || !participantId) return;
     dispatch(submitQuizAnswerThunk({ sessionId, participantId, answer: selected }));
     setSubmitted(true);
+    setSubmittedAnswer(selected); // Save which answer was submitted
   };
 
   const hasRevealed = quiz.status === 'revealed';
@@ -123,26 +115,38 @@ export function PlayerQuizPanel() {
         <span style={{ transform: `scaleX(${progress})` }} />
       </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        {quiz.options.map((option, index) => (
-          <label
-            key={option}
-            className={`flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 ${
-              hasRevealed && quiz.correctOption === index
-                ? 'bg-emerald-500/20 border-emerald-400/40'
-                : 'bg-black/20'
-            }`}
-          >
-            <input
-              type="radio"
-              name="player-answer"
-              value={index}
-              checked={selected === index}
-              onChange={() => setSelected(index)}
-              disabled={hasRevealed || !canAnswer}
-            />
-            <span>{option}</span>
-          </label>
-        ))}
+        {quiz.options.map((option, index) => {
+          const isCorrect = hasRevealed && quiz.correctOption === index;
+          // Use submittedAnswer (not selected) to show which answer the player actually submitted
+          const isWrongSelection = hasRevealed && submittedAnswer === index && quiz.correctOption !== index;
+          
+          return (
+            <label
+              key={option}
+              className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                isCorrect
+                  ? 'bg-emerald-500/20 border-emerald-400/40'
+                  : isWrongSelection
+                  ? 'bg-red-500/20 border-red-400/40'
+                  : 'border-white/10 bg-black/20'
+              }`}
+            >
+              <input
+                type="radio"
+                name="player-answer"
+                value={index}
+                checked={selected === index}
+                onChange={() => setSelected(index)}
+                disabled={hasRevealed || !canAnswer}
+              />
+              <span className={isWrongSelection ? 'text-red-300' : ''}>
+                {option}
+              </span>
+              {isCorrect && <span className="ml-auto text-emerald-400">✓</span>}
+              {isWrongSelection && <span className="ml-auto text-red-400">✗</span>}
+            </label>
+          );
+        })}
         {!submitted && !hasRevealed && (
           <button
             type="submit"
