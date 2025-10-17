@@ -6,6 +6,7 @@ import quizReducer from './slices/quizSlice';
 import settingsReducer from './slices/settingsSlice';
 import authReducer from './slices/authSlice';
 import quizTemplateReducer from './slices/quizTemplateSlice';
+import bioscopeReducer from './slices/bioscopeSlice';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     auth: authReducer,
     settings: settingsReducer,
     quizTemplate: quizTemplateReducer,
+    bioscope: bioscopeReducer,
   },
 });
 

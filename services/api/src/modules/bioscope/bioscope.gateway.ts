@@ -7,7 +7,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
-import { BioscopeService } from '../services';
+import { BioscopeService } from './services';
 import {
   BIOSCOPE_EVENTS,
   RevealImagePayload,
@@ -23,7 +23,7 @@ import {
   BioscopeStateUpdatedEvent,
   BioscopeTimerTickEvent,
   BioscopeGameCompletedEvent,
-} from '../dto';
+} from './dto';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/bioscope' })
 export class BioscopeGateway implements OnGatewayConnection, OnGatewayDisconnect {

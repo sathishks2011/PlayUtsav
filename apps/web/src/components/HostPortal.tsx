@@ -4,17 +4,22 @@ import { useAppSelector } from '../store/hooks';
 import { HostDashboard } from '../screens/HostDashboard';
 import { HostLobby } from '../screens/HostLobby';
 import { HostQuizPanel } from './HostQuizPanel';
+import { HostBioscopePanel } from './HostBioscopePanel';
 import { ThemeStudioPanel } from './ThemeStudioPanel';
 import { HostSettingsPanel } from './HostSettingsPanel';
 import { HostMetricsPanel } from './HostMetricsPanel';
 import TemplateManager from './TemplateManager';
 import { useBuzzerSync } from '../hooks/useBuzzerSync';
 
-type NavKey = 'dashboard' | 'lobby' | 'control' | 'settings' | 'metrics' | 'theme' | 'templates';
+type NavKey = 'dashboard' | 'lobby' | 'control' | 'bioscope' | 'settings' | 'metrics' | 'theme' | 'templates';
 
 export function HostPortal() {
   const [nav, setNav] = useState<NavKey>('dashboard');
   const session = useAppSelector((s) => s.session.current);
+  const user = useAppSelector((s) => s.auth.user);
+
+  const hasActiveSession = Boolean(session);
+  const canAccessBioscope = Boolean(session || user);
 
   useBuzzerSync();
 
@@ -42,6 +47,20 @@ export function HostPortal() {
           <button title="Game Control" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='control'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'} ${!session ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`} onClick={() => setNav('control')} disabled={!session}>
             <FormattedMessage id="host.nav.control" defaultMessage="Game Control" />
           </button>
+          <button
+            title="Bioscope"
+            className={`px-3 py-2 rounded text-left border whitespace-nowrap ${
+              nav === 'bioscope'
+                ? 'bg-[var(--fg)]/10 border-[var(--fg)]/20'
+                : 'border-transparent hover:bg-[var(--fg)]/5'
+            } ${
+              canAccessBioscope ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'
+            }`}
+            onClick={() => canAccessBioscope && setNav('bioscope')}
+            disabled={!canAccessBioscope}
+          >
+            <FormattedMessage id="host.nav.bioscope" defaultMessage="Bioscope" />
+          </button>
           <button title="Settings" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='settings'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('settings')}>
             <FormattedMessage id="host.nav.settings" defaultMessage="Settings" />
           </button>
@@ -65,6 +84,19 @@ export function HostPortal() {
               <h3 className="text-xl font-semibold mb-3"><FormattedMessage id="host.control.title" defaultMessage="Host Game Control" /></h3>
               <HostQuizPanel />
             </div>
+          </div>
+        )}
+        {nav === 'bioscope' && (
+          <div className="space-y-4">
+            {!hasActiveSession && (
+              <div className="rounded-lg border border-[var(--fg)]/15 bg-[var(--card)]/70 p-4 text-sm text-[var(--fg)]/80">
+                <FormattedMessage
+                  id="host.nav.bioscope.noSession"
+                  defaultMessage="Create or restore a session from the dashboard to unlock live Bioscope controls. You can still review templates here while you get set up."
+                />
+              </div>
+            )}
+            <HostBioscopePanel />
           </div>
         )}
         {nav === 'settings' && <HostSettingsPanel />}
