@@ -399,6 +399,35 @@
   right: 0;
 }
 
+/* TV bioscope live activity panel */
+.tv-bioscope-activity {
+  position: fixed;
+  right: 12px;
+  top: 12px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  max-width: 380px;
+  z-index: 2000;
+}
+.tv-bioscope-activity h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.tv-bioscope-activity .section {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.tv-bioscope-activity .small { font-size: 12px; opacity: 0.95; }
+.lobby-live-activity { margin-top: 8px; font-size: 13px; color: #333; }
+.lobby-live-activity .small { font-size: 12px; }
+.tv-bioscope-scroll {
+  max-height: 80px;
+  overflow: auto;
+  margin-top: 6px;
+}
+
 .screensaver-info.bottom-left {
   bottom: 0;
   left: 0;

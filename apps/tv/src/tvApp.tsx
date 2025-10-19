@@ -10,6 +10,7 @@ import ScreenSaver from './components/ScreenSaver';
 import { useIdleDetector } from './hooks/useIdleDetector';
 import { fetchSessionByCode, fetchQuizState, fetchSessionScores } from './lib/api';
 import { getSessionSocket } from './lib/socket';
+import { getBioscopeSocket, type BioscopeGameState } from './lib/bioscopeSocket';
 
 type Screen = 'menu' | 'join' | 'lobby' | 'quiz' | 'scoreboard';
 type Session = any; // We'll type this properly later
@@ -61,6 +62,9 @@ function App() {
   const [debugInfo, setDebugInfo] = useState<string>('Initializing...');
   const [teams, setTeams] = useState<TeamScore[]>([]);
   const [quizEndTimeout, setQuizEndTimeout] = useState<number | null>(null);
+  const [revealedImages, setRevealedImages] = useState<Array<{id: string; url?: string}>>([]);
+  const [buzzerEvents, setBuzzerEvents] = useState<Array<{participantName: string; teamName?: string; timestamp: string}>>([]);
+  const [recentAnswers, setRecentAnswers] = useState<Array<{participantName: string; answer: string; points?: number}>>([]);
   
   const menuItems = ['Play', 'Settings', 'Exit'];
 
@@ -288,6 +292,72 @@ function App() {
           }
         });
 
+        // Subscribe to bioscope namespace events for richer TV display
+        try {
+          const bioscopeSocket = await getBioscopeSocket();
+          bioscopeSocket.subscribe(session.id);
+
+          const handleState = (...args: unknown[]) => {
+            const data = args[0] as BioscopeGameState | undefined;
+            console.log('[TV App] bioscope:state-updated', data);
+            const revealed = (data?.revealedImages || []).map((v) => ({ id: String(v) }));
+            setRevealedImages(revealed);
+            if (data?.answers && Array.isArray(data.answers)) {
+              const recent = data.answers.slice(-5).map((a: any) => ({ participantName: a.participantName || a.name || 'Unknown', answer: a.answer || a.text, points: a.points }));
+              setRecentAnswers(recent);
+            }
+          };
+
+          const handleImage = (...args: unknown[]) => {
+            const data = args[0] as any;
+            console.log('[TV App] bioscope:image-revealed', data);
+            const ids = data?.revealedImages ?? (data?.currentImageId ? [data.currentImageId] : []);
+            const newIds = (ids || []).map((v: any) => String(v));
+            setRevealedImages((prev) => {
+              const existing = new Map(prev.map((p) => [p.id, p]));
+              newIds.forEach((id: string) => existing.set(id, { id }));
+              return Array.from(existing.values()).slice(-20);
+            });
+          };
+
+          const handleAnswer = (...args: unknown[]) => {
+            const data = args[0] as any;
+            console.log('[TV App] bioscope:answer-revealed', data);
+            if (data?.answers && Array.isArray(data.answers)) {
+              const recent = data.answers.slice(-5).map((a: any) => ({ participantName: a.participantName || a.name || 'Unknown', answer: a.answer || a.text, points: a.points }));
+              setRecentAnswers(recent);
+            }
+          };
+
+          const handleBuzzerPressed = (...args: unknown[]) => {
+            const payload = args[0] as any;
+            console.log('[TV App] bioscope:buzzer:pressed', payload);
+            const info = payload?.pressInfo || payload?.buzzerPress || payload;
+            const entry = { participantName: info?.participantName || 'Unknown', teamName: info?.teamName || undefined, timestamp: payload?.timestamp || new Date().toISOString() };
+            setBuzzerEvents((prev) => [entry, ...prev].slice(0, 20));
+          };
+
+          bioscopeSocket.on('bioscope:state-updated', handleState);
+          bioscopeSocket.on('bioscope:image-revealed', handleImage);
+          bioscopeSocket.on('bioscope:answer-revealed', handleAnswer);
+          bioscopeSocket.on('bioscope:buzzer:pressed', handleBuzzerPressed);
+
+          // attach cleanup helper so top-level cleanup can call it
+          (socket as any)._tvBioscopeCleanup = async () => {
+            try {
+              bioscopeSocket.off('bioscope:state-updated', handleState);
+              bioscopeSocket.off('bioscope:image-revealed', handleImage);
+              bioscopeSocket.off('bioscope:answer-revealed', handleAnswer);
+              bioscopeSocket.off('bioscope:buzzer:pressed', handleBuzzerPressed);
+              bioscopeSocket.unsubscribe(session.id);
+            } catch (e) {
+              console.warn('[TV App] bioscope cleanup failed', e);
+            }
+          };
+        } catch (err) {
+          console.warn('[TV App] Could not connect to bioscope socket', err);
+        }
+
         console.log('[TV App] WebSocket setup complete');
       } catch (error) {
         console.error('Failed to setup socket:', error);
@@ -324,7 +394,35 @@ function App() {
   }
 
   if (currentScreen === 'quiz' && quizState) {
-    return <QuizScreen quizState={quizState} sessionCode={sessionCode} />;
+    return (
+      <div>
+        <QuizScreen quizState={quizState} sessionCode={sessionCode} />
+        {/* Live bioscope activity */}
+        <div className="tv-bioscope-activity">
+          <h4>Live Activity</h4>
+          <div className="section">
+            <div><strong>Revealed Images:</strong> {revealedImages.length}</div>
+            <div className="section">
+              {revealedImages.slice(-5).map((r) => (
+                <div key={r.id} className="small">- Image {r.id}</div>
+              ))}
+            </div>
+            <div className="section"><strong>Buzzers:</strong></div>
+            <div className="section tv-bioscope-scroll">
+              {buzzerEvents.slice(0,5).map((b, i) => (
+                <div key={i} className="small">- {b.participantName}{b.teamName?` (${b.teamName})`:''} @ {new Date(b.timestamp).toLocaleTimeString()}</div>
+              ))}
+            </div>
+            <div className="section"><strong>Recent Answers:</strong></div>
+            <div className="section tv-bioscope-scroll">
+              {recentAnswers.slice(0,5).map((a, i) => (
+                <div key={i} className="small">- {a.participantName}: {String(a.answer)}{a.points?` (+${a.points})`:''}</div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (currentScreen === 'scoreboard') {
@@ -345,6 +443,12 @@ function App() {
             <div className="lobby-info">
               <p>Host: {session.hostName || 'Unknown'}</p>
               <p>Players: {session.participants?.length || 0}</p>
+              {/* small bioscope activity summary in lobby */}
+              <div className="lobby-live-activity">
+                <strong>Live Activity</strong>
+                <div className="small">Revealed Images: {revealedImages.length}</div>
+                <div className="small">Recent Buzz: {buzzerEvents[0]?.participantName || '—'}</div>
+              </div>
             </div>
           )}
         </div>
