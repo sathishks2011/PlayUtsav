@@ -15,7 +15,9 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
   }
 
   const { template, currentRoundId, status, answers, revealedImages, timerDuration, timeRemaining } = gameState;
-  const currentRound = template.currentRound;
+  const currentRound = template?.currentRound;
+
+  const revealedSet = React.useMemo(() => new Set((revealedImages || []).map((v) => String(v))), [revealedImages]);
 
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-4 space-y-4">
@@ -23,7 +25,7 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
         <div>
           <h3 className="text-white text-lg font-semibold">Current Game State</h3>
           <p className="text-sm text-gray-400">
-            Round {currentRoundId + 1}: {currentRound?.title}
+            Round {currentRoundId + 1}: {currentRound?.title || 'Loading...'}
           </p>
         </div>
         <span
@@ -49,7 +51,7 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
             <div className="flex items-center justify-between">
               <span className="text-gray-400">Images Revealed</span>
               <span className="text-white font-medium">
-                {revealedImages.length} / {currentRound?.images.length || 0}
+                {revealedImages?.length || 0} / {currentRound?.images?.length || 0}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -62,7 +64,7 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
               <span className="text-gray-400">Answer</span>
               <span className="text-white font-medium">
                 {status === 'revealed' || status === 'completed'
-                  ? currentRound?.answer.title
+                  ? currentRound?.answer?.title || 'N/A'
                   : 'Hidden'}
               </span>
             </div>
@@ -72,7 +74,7 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
         <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4 space-y-3">
           <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">Player Answers</h4>
           <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-            {answers.length === 0 ? (
+            {!answers || answers.length === 0 ? (
               <p className="text-sm text-gray-500">No answers submitted yet.</p>
             ) : (
               answers.map((answer) => (
@@ -103,8 +105,10 @@ export const BioscopeGameStatePanel: React.FC<BioscopeGameStateProps> = ({ gameS
       <div className="bg-gray-800/60 border border-gray-700 rounded-lg p-4">
         <h4 className="text-sm font-semibold text-gray-300 uppercase tracking-wide mb-3">Image Progress</h4>
         <div className="flex gap-2">
-          {currentRound?.images.map((image, index) => {
-            const isRevealed = revealedImages.includes(index + 1);
+          {currentRound?.images?.map((image, index) => {
+            const imageIndexKey = String(index + 1);
+            const imageIdKey = image.id ? String(image.id) : null;
+            const isRevealed = revealedSet.has(imageIndexKey) || (imageIdKey && revealedSet.has(imageIdKey));
             return (
               <div
                 key={image.id || index}
