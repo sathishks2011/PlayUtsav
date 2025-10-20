@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, BadRequestException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, BadRequestException, UseGuards, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import { SessionsService } from '../services/sessions.service';
 import { SessionGateway } from '../gateways/session.gateway';
@@ -6,6 +6,8 @@ import { JwtAuthGuard } from '../auth/jwtAuth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { QuizService } from '../services/quiz.service';
+import { BioscopeService } from '../modules/bioscope/services/bioscope.service';
 
 const CreateSessionDto = z.object({
   hostName: z.string().min(2).max(60).optional(),
@@ -22,11 +24,46 @@ const UpdateStatusDto = z.object({ status: z.enum(['LOBBY', 'ACTIVE', 'ENDED']) 
 
 @Controller('/sessions')
 export class SessionsController {
-  constructor(private readonly sessions: SessionsService, private readonly gateway: SessionGateway) {}
+  constructor(
+    private readonly sessions: SessionsService,
+    private readonly gateway: SessionGateway,
+    private readonly quizService: QuizService,
+    private readonly bioscopeService: BioscopeService,
+  ) {}
 
   @Get()
   list() {
     return this.sessions.list();
+  }
+
+  @Post(':id/reset-all')
+  async resetAllGames(@Param('id') sessionId: string) {
+    let quizReset = false;
+    let bioscopeReset = false;
+
+    try {
+      await this.quizService.resetSession(sessionId);
+      quizReset = true;
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) {
+        throw error;
+      }
+    }
+
+    try {
+      await this.bioscopeService.resetGame(sessionId);
+      bioscopeReset = true;
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) {
+        throw error;
+      }
+    }
+
+    await this.sessions.updateStatus(sessionId, 'LOBBY');
+    await this.gateway.emitSessionUpdate(sessionId);
+    this.gateway.emitToSession(sessionId, 'session:game-reset', { sessionId });
+
+    return { success: true, quizReset, bioscopeReset };
   }
 
   @Get('/:id')

@@ -24,6 +24,7 @@ import {
   BioscopeTimerTickEvent,
   BioscopeGameCompletedEvent,
 } from './dto';
+import { Inject, forwardRef } from '@nestjs/common';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/bioscope' })
 export class BioscopeGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -32,7 +33,10 @@ export class BioscopeGateway implements OnGatewayConnection, OnGatewayDisconnect
   private readonly logger = new Logger(BioscopeGateway.name);
   private timerIntervals = new Map<string, NodeJS.Timeout>();
 
-  constructor(private readonly bioscopeService: BioscopeService) {}
+  constructor(
+    @Inject(forwardRef(() => BioscopeService))
+    private readonly bioscopeService: BioscopeService,
+  ) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`[BioscopeGateway] Client connected: ${client.id}`);

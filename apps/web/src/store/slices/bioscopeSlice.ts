@@ -65,6 +65,18 @@ export interface BioscopePlayerAnswer {
   imageRevealedAt: number;
 }
 
+export interface BioscopeBuzzerState {
+  isOpen: boolean;
+  lockedForParticipantId: string | null;
+  pressedBy: {
+    participantId: string;
+    displayName: string;
+    teamId: string | null;
+    teamName: string | null;
+    pressedAt: string;
+  } | null;
+}
+
 export interface BioscopeGameState {
   bioscopeId: string;
   sessionId: string;
@@ -88,6 +100,7 @@ interface BioscopeSliceState {
   templates: BioscopeTemplate[];
   selectedTemplate: BioscopeTemplate | null;
   currentGame: BioscopeGameState | null;
+  buzzer: BioscopeBuzzerState;
   loading: boolean;
   error?: string;
   lastAction?: string;
@@ -97,6 +110,11 @@ const initialState: BioscopeSliceState = {
   templates: [],
   selectedTemplate: null,
   currentGame: null,
+  buzzer: {
+    isOpen: false,
+    lockedForParticipantId: null,
+    pressedBy: null,
+  },
   loading: false,
 };
 
@@ -221,6 +239,18 @@ export const fetchBioscopeGameState = createAsyncThunk(
   }
 );
 
+export const resetBioscopeGame = createAsyncThunk(
+  'bioscope/resetGame',
+  async (payload: { sessionId: string }) => {
+    const response = await fetch(`/api/bioscope/sessions/${payload.sessionId}/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Failed to reset game');
+    return response.json();
+  }
+);
+
 // Slice
 const bioscopeSlice = createSlice({
   name: 'bioscope',
@@ -247,6 +277,12 @@ const bioscopeSlice = createSlice({
       state.currentGame = null;
       state.selectedTemplate = null;
       state.error = undefined;
+    },
+    setBioscopeBuzzerState: (state, action: PayloadAction<Partial<BioscopeBuzzerState>>) => {
+      state.buzzer = { ...state.buzzer, ...action.payload };
+    },
+    resetBioscopeBuzzer: (state) => {
+      state.buzzer = initialState.buzzer;
     },
   },
   extraReducers: (builder) => {
@@ -383,6 +419,21 @@ const bioscopeSlice = createSlice({
       state.loading = false;
       state.error = action.error.message;
     });
+
+    // Reset Game
+    builder.addCase(resetBioscopeGame.pending, (state) => {
+      state.loading = true;
+      state.error = undefined;
+      state.lastAction = 'reset';
+    });
+    builder.addCase(resetBioscopeGame.fulfilled, (state, action) => {
+      state.loading = false;
+      state.currentGame = action.payload;
+    });
+    builder.addCase(resetBioscopeGame.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.error.message;
+    });
   },
 });
 
@@ -393,6 +444,8 @@ export const {
   updateTimeRemaining,
   clearError,
   resetBioscope,
+  setBioscopeBuzzerState,
+  resetBioscopeBuzzer,
 } = bioscopeSlice.actions;
 
 export default bioscopeSlice.reducer;

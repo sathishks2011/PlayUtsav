@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-
-type QuizState = any; // Type from API
+import type { QuizState } from '@pkg/core';
 
 interface QuizScreenProps {
   quizState: QuizState;
@@ -9,11 +8,6 @@ interface QuizScreenProps {
 
 export default function QuizScreen({ quizState, sessionCode }: QuizScreenProps) {
   const [timeLeft, setTimeLeft] = useState<number>(0);
-
-  useEffect(() => {
-    console.log('[QuizScreen] Quiz state:', quizState);
-    console.log('[QuizScreen] Status:', quizState.status);
-  }, [quizState]);
 
   useEffect(() => {
     if (quizState.status !== 'running' || !quizState.createdAt) {
@@ -37,9 +31,10 @@ export default function QuizScreen({ quizState, sessionCode }: QuizScreenProps) 
     updateTimer();
   }, [quizState]);
 
-  // Show quiz for both 'running' and 'revealed' status
-  if ((quizState.status !== 'running' && quizState.status !== 'revealed') || !quizState.prompt) {
-    console.log('[QuizScreen] Not showing quiz - status:', quizState.status, 'prompt:', quizState.prompt);
+  if (
+    (quizState.status !== 'running' && quizState.status !== 'revealed') ||
+    !quizState.prompt
+  ) {
     return null;
   }
 
@@ -48,7 +43,6 @@ export default function QuizScreen({ quizState, sessionCode }: QuizScreenProps) 
 
   return (
     <div className="quiz-screen">
-      {/* Header */}
       <div className="quiz-header">
         <div className="session-badge">
           <span className="badge-label">Session</span>
@@ -60,42 +54,55 @@ export default function QuizScreen({ quizState, sessionCode }: QuizScreenProps) 
         </div>
       </div>
 
-      {/* Question */}
       <div className="question-container">
         <h1 className="question-text">{quizState.prompt}</h1>
       </div>
 
-      {/* Answer Options */}
       <div className="answer-grid">
         {quizState.options.map((option: string, index: number) => {
-          const answerCount = quizState.answers?.filter((a: any) => a.answer === index).length || 0;
-          const percentage = totalAnswers > 0 ? (answerCount / totalAnswers) * 100 : 0;
-          const colorClasses = ['answer-color-a', 'answer-color-b', 'answer-color-c', 'answer-color-d'];
+          const answerCount =
+            quizState.answers?.filter(
+              (answer: QuizState['answers'][number]) => answer.answer === index,
+            ).length || 0;
+          const percentage =
+            totalAnswers > 0 ? (answerCount / totalAnswers) * 100 : 0;
+          const colorClasses = [
+            'answer-color-a',
+            'answer-color-b',
+            'answer-color-c',
+            'answer-color-d',
+          ];
           const colorClass = colorClasses[index % colorClasses.length];
           const isCorrect = isRevealed && quizState.correctOption === index;
 
           return (
-            <div 
-              key={index} 
-              className={`answer-option ${colorClass} ${isCorrect ? 'answer-correct' : ''}`}
+            <div
+              key={index}
+              className={`answer-option ${colorClass} ${
+                isCorrect ? 'answer-correct' : ''
+              }`}
             >
               <div className="option-header">
                 <span className={`option-letter ${colorClass}-bg`}>
                   {String.fromCharCode(65 + index)}
                 </span>
                 <span className="option-text">{option}</span>
-                {isCorrect && <span className="correct-indicator">✓ Correct!</span>}
+                {isCorrect && (
+                  <span className="correct-indicator">Correct!</span>
+                )}
               </div>
-              
+
               {isRevealed && (
                 <div className="answer-stats">
                   <div className="stat-bar-container">
-                    <div 
+                    <div
                       className={`stat-bar ${colorClass}-bg`}
                       style={{ width: `${percentage}%` }}
                     />
                   </div>
-                  <span className="stat-count">{answerCount} player{answerCount !== 1 ? 's' : ''}</span>
+                  <span className="stat-count">
+                    {answerCount} player{answerCount !== 1 ? 's' : ''}
+                  </span>
                 </div>
               )}
             </div>
@@ -103,7 +110,6 @@ export default function QuizScreen({ quizState, sessionCode }: QuizScreenProps) 
         })}
       </div>
 
-      {/* Footer Stats */}
       <div className="quiz-footer">
         <div className="stat-item">
           <span className="stat-label">Players Answered</span>

@@ -64,6 +64,7 @@ model Session {
   participants          Participant[]
   scores                Score[]
   quizRounds            QuizRound[]
+  bioscopeSession       BioscopeSession?
 }
 
 model Team {
@@ -295,6 +296,7 @@ model BioscopeTemplate {
 
 model BioscopeSession {
   id              String            @id @default(cuid())
+  session         Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   sessionId       String            @unique
   template        BioscopeTemplate  @relation(fields: [templateId], references: [id], onDelete: Restrict)
   templateId      String
@@ -304,6 +306,8 @@ model BioscopeSession {
   revealedImages  String            @default("[]") // JSON array of revealed image IDs
   timerStartedAt  DateTime?
   timerDuration   Int               @default(30) // seconds
+  playerEngagementType String?
+  buzzerState     String?           // JSON for buzzer state: { isOpen, lockedForParticipantId, pressedBy, pressedAt }
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   

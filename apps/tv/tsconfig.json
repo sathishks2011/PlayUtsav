@@ -4,11 +4,10 @@
     "types": ["vite/client"],
     "baseUrl": "./src",
     "paths": {
-      "@pkg/core": ["../../packages/core/src"],
-      "@pkg/ui": ["../../packages/ui/src"]
+      "@pkg/core": ["../../../packages/core/src"],
+      "@pkg/ui": ["../../../packages/ui/src"]
     }
   },
   "include": ["src"],
   "exclude": ["dist"]
 }
-

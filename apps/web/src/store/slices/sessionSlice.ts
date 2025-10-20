@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import type { Session } from '@pkg/core';
+import type { Session, GameInstance } from '@pkg/core';
 import { addTeam, createSession, joinSession, removeParticipant, assignParticipantToTeam } from '../../lib/api';
 
 type Role = 'HOST' | 'PLAYER' | null;
@@ -68,14 +68,37 @@ const sessionSlice = createSlice({
       return initialState;
     },
     setSnapshot(state, action: PayloadAction<Session>) {
-      state.current = action.payload;
+      // Defensive merge: preserve client's existing activeGameIndex if present
+      // However, if the incoming snapshot contains a bioscope game whose state
+      // is currently 'active', force the activeGameIndex to that bioscope game's
+      // index so clients immediately switch to the running bioscope game.
+      const incoming = action.payload;
+
+      // Detect an active bioscope in the incoming snapshot
+      let bioscopeActiveIndex: number | undefined;
+      if (incoming && Array.isArray((incoming as any).games)) {
+        const idx = (incoming as any).games.findIndex((g: any) => g && g.type === 'bioscope' && g.state && g.state.status === 'active');
+        if (idx !== -1) bioscopeActiveIndex = idx;
+      }
+
+      if (typeof bioscopeActiveIndex === 'number' && state.role !== 'HOST') {
+        // Force clients to switch to the active bioscope regardless of local preserve
+        state.current = { ...incoming, activeGameIndex: bioscopeActiveIndex } as Session;
+      } else if (state.current && typeof state.current.activeGameIndex === 'number') {
+        // If incoming doesn't have a numeric activeGameIndex, or looks like a default,
+        // preserve the existing one to avoid unwanted resets.
+        const incomingIndex = (incoming as any).activeGameIndex;
+        const preserve = typeof incomingIndex === 'number' ? incomingIndex : state.current.activeGameIndex;
+        state.current = { ...incoming, activeGameIndex: preserve } as Session;
+      } else {
+        state.current = incoming;
+      }
       state.status = 'ready';
     },
     setHostSession(state, action: PayloadAction<Session>) {
       state.current = action.payload;
       state.role = 'HOST';
       state.status = 'ready';
-      
       // Persist host session to localStorage for refresh recovery
       localStorage.setItem('hostSession', JSON.stringify({
         sessionId: action.payload.id,
@@ -87,6 +110,46 @@ const sessionSlice = createSlice({
       state.participantId = action.payload.participantId;
       state.role = 'PLAYER';
       state.status = 'ready';
+    },
+    // New: setActiveGameIndex
+    setActiveGameIndex(state, action: PayloadAction<number>) {
+      console.log('[sessionSlice] setActiveGameIndex called with:', action.payload);
+      if (state.current) {
+        console.log('[sessionSlice] Previous activeGameIndex:', state.current.activeGameIndex);
+        state.current.activeGameIndex = action.payload;
+        console.log('[sessionSlice] New activeGameIndex:', state.current.activeGameIndex);
+        console.log('[sessionSlice] Active game:', state.current.games[action.payload]);
+        
+        // Persist activeGameIndex to localStorage for host (for refresh recovery)
+        if (state.role === 'HOST') {
+          const hostSession = localStorage.getItem('hostSession');
+          if (hostSession) {
+            const parsed = JSON.parse(hostSession);
+            localStorage.setItem('hostSession', JSON.stringify({
+              ...parsed,
+              activeGameIndex: action.payload
+            }));
+            console.log('[sessionSlice] Persisted activeGameIndex to localStorage');
+          }
+        }
+      } else {
+        console.warn('[sessionSlice] Cannot set activeGameIndex - no current session');
+      }
+    },
+    // New: addGameInstance
+    addGameInstance(state, action: PayloadAction<GameInstance>) {
+      if (state.current) {
+        state.current.games.push(action.payload);
+      }
+    },
+    // New: updateGameInstanceState
+    updateGameInstanceState(state, action: PayloadAction<{ gameId: string; newState: any }>) {
+      if (state.current) {
+        const game = state.current.games.find(g => g.id === action.payload.gameId);
+        if (game) {
+          game.state = action.payload.newState;
+        }
+      }
     },
     setError(state, action: PayloadAction<string | undefined>) {
       state.error = action.payload;
@@ -179,5 +242,13 @@ const sessionSlice = createSlice({
   },
 });
 
-export const { reset: resetSession, setSnapshot, setHostSession, setPlayerSession, setError } = sessionSlice.actions;
+export const { 
+  reset: resetSession, 
+  setSnapshot, 
+  setHostSession, 
+  setPlayerSession, 
+  setError,
+  setActiveGameIndex,
+  addGameInstance
+} = sessionSlice.actions;
 export default sessionSlice.reducer;

@@ -15,6 +15,9 @@
     "dev:api": "pnpm --filter @svc/api start:dev"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
     "@noriginmedia/norigin-spatial-navigation": "^2.3.0"
   }
 }

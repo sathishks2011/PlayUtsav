@@ -3,8 +3,17 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutThunk } from '../store/slices/authSlice';
 import { createSessionThunk, setHostSession } from '../store/slices/sessionSlice';
-import { listSessions, listQuizTemplates, attachQuizTemplate, deleteSession } from '../lib/api';
+import { listSessions, listQuizTemplates, attachQuizTemplate, attachBioscopeTemplate, deleteSession } from '../lib/api';
+import { useToast } from '../components/ToastProvider';
+import { fetchBioscopeTemplates, type BioscopeTemplate } from '../store/slices/bioscopeSlice';
 import type { Session, PlayerEngagementType, QuizTemplateResponse } from '@pkg/core';
+
+type GameTemplate = {
+  id: string;
+  name: string;
+  type: 'quiz' | 'bioscope';
+  details: string;
+};
 
 export function HostDashboard() {
   const intl = useIntl();
@@ -20,10 +29,13 @@ export function HostDashboard() {
   const [playerEngagementType, setPlayerEngagementType] = useState<PlayerEngagementType>('CHOICE_ANSWER');
   
   // Template selection
-  const [templates, setTemplates] = useState<QuizTemplateResponse[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [quizTemplates, setQuizTemplates] = useState<QuizTemplateResponse[]>([]);
+  const [bioscopeTemplates, setBioscopeTemplates] = useState<BioscopeTemplate[]>([]);
+  const [allTemplates, setAllTemplates] = useState<GameTemplate[]>([]);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
   const [isAttachingTemplate, setIsAttachingTemplate] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadSessions();
@@ -33,8 +45,38 @@ export function HostDashboard() {
   const loadTemplates = async () => {
     setIsLoadingTemplates(true);
     try {
-      const data = await listQuizTemplates();
-      setTemplates(data);
+      // Load quiz templates
+      const quizData = await listQuizTemplates();
+      setQuizTemplates(quizData);
+
+      // Load bioscope templates
+      const bioscopeResult = await dispatch(
+        fetchBioscopeTemplates({ hostId: user?.id, includePublic: true })
+      ).unwrap();
+      setBioscopeTemplates(bioscopeResult || []);
+
+      // Combine into unified list
+      const combined: GameTemplate[] = [
+        ...quizData.map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: 'quiz' as const,
+          details: `${t.categories.length} rounds, ${t.categories.reduce(
+            (sum, cat) => sum + cat.questions.length,
+            0
+          )} questions`,
+        })),
+        ...((bioscopeResult || []) as BioscopeTemplate[]).map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: 'bioscope' as const,
+          details: `${t.rounds.length} rounds, ${t.rounds.reduce(
+            (sum, r) => sum + (r.images?.length || 0),
+            0
+          )} images`,
+        })),
+      ];
+      setAllTemplates(combined);
     } catch (err) {
       console.error('Failed to load templates:', err);
     } finally {
@@ -68,25 +110,40 @@ export function HostDashboard() {
       
       console.log('Session created:', session.code);
 
-      // Attach template if one is selected
-      if (selectedTemplateId) {
-        setIsAttachingTemplate(true);
-        try {
-          await attachQuizTemplate(session.id, selectedTemplateId);
-          console.log('Template attached successfully to session:', session.id);
-        } catch (err) {
-          console.error('Failed to attach template:', err);
-          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-          alert(`Session created but failed to attach template: ${errorMessage}\n\nYou can attach it later from the Templates tab.`);
-        } finally {
-          setIsAttachingTemplate(false);
+      // Attach all selected templates
+      if (selectedTemplateIds.length > 0) {
+        console.log('Attaching templates:', selectedTemplateIds);
+        let updatedSession = session;
+        for (const templateId of selectedTemplateIds) {
+          const template = allTemplates.find(t => t.id === templateId);
+          if (template) {
+            if (template.type === 'quiz') {
+              updatedSession = await attachQuizTemplate(session.id, templateId);
+              console.log('Attached quiz template:', templateId);
+            } else if (template.type === 'bioscope') {
+              updatedSession = await attachBioscopeTemplate(session.id, templateId);
+              console.log('Attached bioscope template:', templateId);
+            }
+          }
         }
+        
+        // Update Redux with the complete session including games
+        dispatch(setHostSession(updatedSession));
+        console.log('Session updated with games:', updatedSession.games);
       }
       
       // Session is now in Redux state with role: 'HOST', will show HostLobby
     } catch (err) {
       console.error('Failed to create session:', err);
     }
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateIds((prev) =>
+      prev.includes(templateId)
+        ? prev.filter((id) => id !== templateId)
+        : [...prev, templateId]
+    );
   };
 
   const handleLogout = async () => {
@@ -98,34 +155,35 @@ export function HostDashboard() {
   };
 
   const handleDeleteSession = async (sessionId: string, sessionCode: string) => {
-    const confirmMessage = intl.formatMessage(
-      { id: 'host.session.deleteConfirm', defaultMessage: 'Are you sure you want to delete session {code}? You can restore it later if needed.' },
-      { code: sessionCode }
-    );
-    
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
+    // Non-blocking delete: perform delete immediately and show an auto-dismissing toast for feedback.
 
     try {
       await deleteSession(sessionId);
       console.log(`Session ${sessionCode} deleted successfully`);
-      
+
       // Reload sessions list
       await loadSessions();
-      
-      // Show success message
-      alert(intl.formatMessage(
-        { id: 'host.session.deleteSuccess', defaultMessage: 'Session {code} archived successfully. You can restore it from the archived sessions list.' },
-        { code: sessionCode }
-      ));
+
+      // Show success toast (auto-dismisses)
+      toast.showToast({
+        message: intl.formatMessage(
+          { id: 'host.session.deleteSuccess', defaultMessage: 'Session {code} archived successfully. You can restore it from the archived sessions list.' },
+          { code: sessionCode }
+        ),
+        type: 'success',
+        duration: 4000,
+      });
     } catch (err) {
       console.error('Failed to delete session:', err);
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      alert(intl.formatMessage(
-        { id: 'host.session.deleteError', defaultMessage: 'Failed to delete session: {error}' },
-        { error: errorMessage }
-      ));
+      toast.showToast({
+        message: intl.formatMessage(
+          { id: 'host.session.deleteError', defaultMessage: 'Failed to delete session: {error}' },
+          { error: errorMessage }
+        ),
+        type: 'error',
+        duration: 6000,
+      });
     }
   };
 
@@ -334,56 +392,48 @@ export function HostDashboard() {
             </div>
           </div>
 
-          {/* Quiz Template Selector */}
+          {/* Game Template Selector */}
           <div className="space-y-2">
-            <label htmlFor="templateSelect" className="block text-sm font-medium">
-              <FormattedMessage id="host.template" defaultMessage="Quiz Template" />
+            <label className="block text-sm font-medium">
+              <FormattedMessage id="host.template.games" defaultMessage="Game Templates" />
               <span className="ml-2 text-xs opacity-75">
                 <FormattedMessage id="host.template.optional" defaultMessage="(Optional)" />
               </span>
             </label>
             <p className="text-xs opacity-75 mb-3">
               <FormattedMessage 
-                id="host.template.description" 
-                defaultMessage="Select a pre-made quiz template with questions organized into rounds" 
+                id="host.template.games.description" 
+                defaultMessage="Select one or more game templates (Quiz, Bioscope, etc.) to add to this session. They will appear as separate games in the lobby." 
               />
             </p>
-            
-            {isLoadingTemplates ? (
-              <div className="text-sm opacity-75 py-2">
-                <FormattedMessage id="common.loading" defaultMessage="Loading templates..." />
-              </div>
-            ) : (
-              <select
-                id="templateSelect"
-                value={selectedTemplateId}
-                onChange={(e) => setSelectedTemplateId(e.target.value)}
-                disabled={isCreating || isAttachingTemplate}
-                aria-label={intl.formatMessage({ id: 'host.template', defaultMessage: 'Quiz Template' })}
-                className="w-full px-4 py-2 rounded border border-[var(--fg)]/20 bg-[var(--bg)] text-[var(--fg)] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
-              >
-                <option value="">
-                  {intl.formatMessage({ 
-                    id: 'host.template.none', 
-                    defaultMessage: 'No template (use custom questions)' 
-                  })}
-                </option>
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} ({template.categories.length} rounds, {' '}
-                    {template.categories.reduce((sum, cat) => sum + cat.questions.length, 0)} questions)
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {selectedTemplateId && (
+            <div className="rounded-lg border border-blue-400/30 bg-blue-100/10 p-4">
+              {isLoadingTemplates ? (
+                <div className="text-sm opacity-75 py-2">
+                  <FormattedMessage id="common.loading" defaultMessage="Loading templates..." />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {allTemplates.length === 0 && (
+                    <div className="text-xs opacity-60">No templates available.</div>
+                  )}
+                  {allTemplates.map((template) => (
+                    <label key={template.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedTemplateIds.includes(template.id)}
+                        onChange={() => handleTemplateChange(template.id)}
+                        disabled={isCreating || isAttachingTemplate}
+                      />
+                      <span>{template.type === 'quiz' ? '📝' : '🎬'} {template.name} <span className="opacity-60 text-xs">({template.details})</span></span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {selectedTemplateIds.length > 0 && (
               <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded text-sm">
                 <p className="text-blue-400">
-                  💡 <FormattedMessage 
-                    id="host.template.tip" 
-                    defaultMessage="Template will be attached after session creation. You can navigate between rounds from the Game Control panel." 
-                  />
+                  <FormattedMessage id="host.template.games.selected" defaultMessage="{count} game(s) will be added to this session." values={{ count: selectedTemplateIds.length }} />
                 </p>
               </div>
             )}
@@ -462,12 +512,14 @@ export function HostDashboard() {
                           {session.playerEngagementType.replace('_', ' ')}
                         </span>
                       </div>
-                      {session.quizTemplateId && session.quizTemplate && (
+                      {session.games && session.games.length > 0 && (
                         <div className="mt-1 text-xs flex items-center gap-1">
-                          <span className="opacity-60">Template:</span>
-                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded">
-                            📋 {session.quizTemplate.name}
-                          </span>
+                          <span className="opacity-60">Games:</span>
+                          {session.games.map((game) => (
+                            <span key={game.id} className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded mr-1">
+                              {game.type === 'quiz' ? '📝' : '🎬'} {game.name}
+                            </span>
+                          ))}
                         </div>
                       )}
                     </div>

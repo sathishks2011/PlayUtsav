@@ -1,19 +1,59 @@
 import { io } from 'socket.io-client';
 import { getApiBaseUrl } from './config';
 
+export type BioscopeStatus = 'idle' | 'active' | 'revealing' | 'answering' | 'revealed' | 'completed';
+
+export type BioscopeImage = {
+  id?: string;
+  file?: string;
+  hint?: string;
+  points_multiplier?: number;
+};
+
+export type BioscopeAnswer = {
+  title: string;
+  alternatives?: string[];
+  reveal_sound?: string;
+  reveal_effect?: string;
+};
+
+export type BioscopeRound = {
+  round_id?: string;
+  title?: string;
+  images?: BioscopeImage[];
+  answer?: BioscopeAnswer;
+  scoring?: Record<string, unknown>;
+};
+
+export type BioscopeTemplateState = {
+  name?: string;
+  configuration?: Record<string, unknown>;
+  currentRound?: BioscopeRound | null;
+};
+
+export type BioscopePlayerAnswer = {
+  participantId: string;
+  participantName: string;
+  answer: string;
+  isCorrect: boolean;
+  pointsAwarded: number;
+  submittedAt: string;
+  imageRevealedAt: number;
+};
+
 export type BioscopeGameState = {
   bioscopeId: string;
   sessionId: string;
   templateId: string;
   currentRoundId: number;
   currentImageId: number;
-  status: string;
+  status: BioscopeStatus;
   revealedImages: Array<number | string>;
   timerStartedAt: string | null;
   timerDuration: number;
   timeRemaining: number | null;
-  template?: any;
-  answers?: any[];
+  template?: BioscopeTemplateState;
+  answers?: BioscopePlayerAnswer[];
 };
 
 export type BioscopeSocket = {
@@ -30,7 +70,7 @@ let bioscopeSocketPromise: Promise<BioscopeSocket> | null = null;
 export async function getBioscopeSocket(): Promise<BioscopeSocket> {
   if (!bioscopeSocketPromise) {
     bioscopeSocketPromise = getApiBaseUrl().then((baseUrl) => {
-  const socket = io(`${baseUrl}/bioscope`, {
+      const socket = io(`${baseUrl}/bioscope`, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: Infinity,
@@ -52,28 +92,35 @@ export async function getBioscopeSocket(): Promise<BioscopeSocket> {
       });
 
       return {
-        subscribe: (sessionId: string) => {
+        subscribe(sessionId: string) {
           console.log('[BioscopeSocket] Subscribing to session:', sessionId);
           socket.emit('bioscope:subscribe', { sessionId });
         },
 
-        unsubscribe: (sessionId: string) => {
+        unsubscribe(sessionId: string) {
           console.log('[BioscopeSocket] Unsubscribing from session:', sessionId);
           socket.emit('bioscope:unsubscribe', { sessionId });
         },
 
-        on: (event: string, cb: (...args: unknown[]) => void) => {
+        on(event: string, cb: (...args: unknown[]) => void) {
           socket.on(event, cb);
         },
 
-        off: (event: string, cb?: (...args: unknown[]) => void) => {
-          if (cb) socket.off(event, cb);
-          else socket.off(event);
+        off(event: string, cb?: (...args: unknown[]) => void) {
+          if (cb) {
+            socket.off(event, cb);
+          } else {
+            socket.off(event);
+          }
         },
 
-        disconnect: () => socket.disconnect(),
+        disconnect() {
+          socket.disconnect();
+        },
 
-        isConnected: () => socket.connected,
+        isConnected() {
+          return socket.connected;
+        },
       };
     });
   }
@@ -83,7 +130,7 @@ export async function getBioscopeSocket(): Promise<BioscopeSocket> {
 
 export function resetBioscopeSocket() {
   if (bioscopeSocketPromise) {
-    bioscopeSocketPromise.then((s) => s.disconnect());
+    bioscopeSocketPromise.then((socket) => socket.disconnect());
     bioscopeSocketPromise = null;
   }
 }

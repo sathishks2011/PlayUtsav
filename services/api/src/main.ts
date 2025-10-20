@@ -14,11 +14,16 @@ async function bootstrap() {
       origin: [
         'http://localhost:5173',
         'http://localhost:5174',
+        'http://localhost:5175',
         'http://192.168.1.106:5173',
         'http://192.168.1.106:5174',
+        'http://192.168.1.106:5175',
         'http://192.168.2.1:5173',
+        'http://192.168.2.1:5174',
         'http://10.5.0.2:5173',
-        'http://172.25.128.1:5173'
+        'http://10.5.0.2:5174',
+        'http://172.25.128.1:5173',
+        'http://172.25.128.1:5174'
       ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

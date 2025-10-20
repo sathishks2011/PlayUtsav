@@ -61,6 +61,33 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
     this.server.to(this.room(sessionId)).emit(event, data);
   }
 
+  @SubscribeMessage('session:game-started')
+  async handleGameStarted(
+    client: Socket,
+    payload: { sessionId: string; gameType?: string; activeGameIndex?: number },
+  ) {
+    if (!payload?.sessionId) return;
+    this.logger.log(`[SessionGateway] Received session:game-started from ${client.id}`, payload as any);
+    try {
+      await this.sessionsService.updateStatus(payload.sessionId, 'ACTIVE');
+    } catch (error) {
+      this.logger.warn(`[SessionGateway] Unable to update session status to ACTIVE`, error as any);
+    }
+    this.server.to(this.room(payload.sessionId)).emit('session:game-started', payload);
+  }
+
+  @SubscribeMessage('session:game-reset')
+  async handleGameReset(client: Socket, payload: { sessionId: string }) {
+    if (!payload?.sessionId) return;
+    this.logger.log(`[SessionGateway] Received session:game-reset from ${client.id}`, payload as any);
+    try {
+      await this.sessionsService.updateStatus(payload.sessionId, 'LOBBY');
+    } catch (error) {
+      this.logger.warn(`[SessionGateway] Unable to update session status to LOBBY`, error as any);
+    }
+    this.server.to(this.room(payload.sessionId)).emit('session:game-reset', payload);
+  }
+
   // Buzzer Mode Events
   async emitBuzzerOpened(sessionId: string, buzzerState: {
     isOpen: boolean;
@@ -135,6 +162,32 @@ export class SessionGateway implements OnGatewayConnection, OnGatewayDisconnect 
       timestamp: new Date().toISOString(),
     });
   }
+
+  // Bioscope Buzzer Events
+  async emitBioscopeBuzzerOpened(sessionId: string, buzzerState: any) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting bioscope:buzzer:opened to room: ${roomName}`);
+    this.server.to(roomName).emit('bioscope:buzzer:opened', { sessionId, buzzerState, timestamp: new Date().toISOString() });
+  }
+
+  async emitBioscopeBuzzerPressed(sessionId: string, pressInfo: any, buzzerState: any) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting bioscope:buzzer:pressed to room: ${roomName}`);
+    this.server.to(roomName).emit('bioscope:buzzer:pressed', { sessionId, pressInfo, buzzerState, timestamp: new Date().toISOString() });
+  }
+
+  async emitBioscopeBuzzerClosed(sessionId: string, buzzerState: any) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting bioscope:buzzer:closed to room: ${roomName}`);
+    this.server.to(roomName).emit('bioscope:buzzer:closed', { sessionId, buzzerState, timestamp: new Date().toISOString() });
+  }
+
+  async emitBioscopeBuzzerReset(sessionId: string, buzzerState: any) {
+    const roomName = this.room(sessionId);
+    this.logger.log(`[SessionGateway] Emitting bioscope:buzzer:reset to room: ${roomName}`);
+    this.server.to(roomName).emit('bioscope:buzzer:reset', { sessionId, buzzerState, timestamp: new Date().toISOString() });
+  }
+
 
   async emitScoreAnimated(sessionId: string, payload: {
     teamId: string | null;

@@ -51,6 +51,15 @@ export type BuzzerState = {
   timerDuration: number; // Buzzer timer in seconds (default 30)
 };
 
+// Represents a single game instance (Quiz, Bioscope, etc.) attached to a session
+export type GameInstance = {
+  id: string; // unique per game in session
+  type: 'quiz' | 'bioscope';
+  templateId: string;
+  name: string;
+  state: any; // game-specific state (QuizState, BioscopeState, etc.)
+};
+
 export type Session = {
   id: string;
   code: string;
@@ -60,15 +69,13 @@ export type Session = {
   maxPlayers: number;
   language: string;
   playerEngagementType: PlayerEngagementType;
-  quizTemplateId?: string | null;
-  currentCategoryIndex?: number;
-  currentQuestionIndex?: number;
   createdAt: string;
   updatedAt: string;
   teams: Team[];
   participants: Participant[];
   scores: Score[];
-  quizTemplate?: QuizTemplateResponse;
+  games: GameInstance[]; // All attached games/templates for this session
+  activeGameIndex: number; // Index of the currently active game
 };
 
 export type Theme = {

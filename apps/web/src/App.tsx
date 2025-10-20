@@ -9,7 +9,9 @@ import { HostDashboard } from './screens/HostDashboard';
 import { HostPortal } from './components/HostPortal';
 import { ScoreAnimation } from './components/ScoreAnimation';
 import { ConnectionStatus } from './components/ConnectionStatus';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { WebSocketProvider } from './contexts/WebSocketContext';
+import { ToastProvider } from './components/ToastProvider';
 import { useSessionSync } from './hooks/useSessionSync';
 import { useThemeSync } from './hooks/useThemeSync';
 import { useLocaleSync } from './hooks/useLocaleSync';
@@ -190,9 +192,13 @@ function AppContent() {
 
 export default function App() {
   return (
-    <WebSocketProvider>
-      <AppContent />
-    </WebSocketProvider>
+    <ErrorBoundary>
+      <WebSocketProvider>
+        <ToastProvider>
+          <AppContent />
+        </ToastProvider>
+      </WebSocketProvider>
+    </ErrorBoundary>
   );
 }
 

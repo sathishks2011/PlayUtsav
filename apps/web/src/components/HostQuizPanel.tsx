@@ -8,6 +8,7 @@ import { getRoundQuestions, updateRound, advanceToNextRound, advanceToPreviousRo
 import type { QuestionResponse, CategoryResponse } from '@pkg/core';
 import { RoundSelector } from './RoundSelector';
 import { RoundInfoHeader } from './RoundInfoHeader';
+import { useToast } from './ToastProvider';
 
 const SAMPLE_QUESTIONS = [
   {
@@ -35,9 +36,11 @@ interface HostQuizPanelProps {
 
 export function HostQuizPanel({ showHostControls = true, allowPlayerInput = false }: HostQuizPanelProps) {
   const dispatch = useAppDispatch();
+  const toast = useToast();
   const intl = useIntl();
   const session = useAppSelector((s: RootState) => s.session.current);
-  const quizState = useAppSelector((s: RootState) => s.quiz.current);
+  const rawQuizState = useAppSelector((s: RootState) => s.quiz.current);
+  const quizState = rawQuizState && rawQuizState.sessionId === session?.id ? rawQuizState : null;
   const loading = useAppSelector((s: RootState) => s.quiz.loading);
   const autoRevealEnabled = useAppSelector((s: RootState) => s.settings.reveal.autoRevealEnabled);
   const autoRevealTimeout = useAppSelector((s: RootState) => s.settings.reveal.autoRevealTimeout);
@@ -100,22 +103,27 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     return () => window.clearInterval(timer);
   }, [quizState?.questionId, quizState?.createdAt, quizState?.duration]);
 
-  // Load template questions when a template is attached to the session
+  // Only load template questions when quiz game is explicitly started (status === 'active')
   useEffect(() => {
-    if (!session?.id || !session.quizTemplateId) {
-      console.log('[HostQuizPanel] No template attached, using sample questions');
+    // Find the quiz game in the session.games array
+    const quizGame = session?.games?.find(g => g.type === 'quiz');
+    const quizStatus = quizGame?.state?.status;
+    const quizTemplateId = quizGame?.templateId;
+    const quizTemplate = quizGame?.state?.template;
+    if (!session?.id || !quizTemplateId || !quizGame || quizStatus !== 'active') {
+      // Only use sample questions if quiz is not started
       setUsingTemplate(false);
       return;
     }
 
-    console.log('[HostQuizPanel] Template detected, loading questions...');
+    console.log('[HostQuizPanel] Quiz game is active, loading questions...');
     setLoadingTemplate(true);
 
     getRoundQuestions(session.id)
       .then((roundInfo) => {
         console.log('[HostQuizPanel] Template questions loaded:', roundInfo);
         setTemplateQuestions(roundInfo.questions);
-        setCategories(session.quizTemplate?.categories || []);
+        setCategories(quizTemplate?.categories || []);
         setCurrentCategoryIndex(roundInfo.session.currentCategoryIndex);
         setCurrentQuestionIndex(roundInfo.session.currentQuestionIndex);
         setTemplateName(roundInfo.template.name);
@@ -126,13 +134,13 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
         setUsingTemplate(false);
         // Show user-friendly error
         if (showHostControls) {
-          alert('Failed to load quiz template. Using sample questions instead.');
+          toast.showToast({ message: 'Failed to load quiz template. Using sample questions instead.', type: 'error', duration: 5000 });
         }
       })
       .finally(() => {
         setLoadingTemplate(false);
       });
-  }, [session?.id, session?.quizTemplateId, session?.quizTemplate, showHostControls]);
+  }, [session?.id, showHostControls, session?.games]);
 
   // Reset allAnswered state when quiz changes
   useEffect(() => {
@@ -278,12 +286,25 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
       console.log('[HostQuizPanel] Round changed successfully');
     } catch (error) {
       console.error('[HostQuizPanel] Failed to change round:', error);
-      alert('Failed to change round. Please try again.');
+      toast.showToast({ message: 'Failed to change round. Please try again.', type: 'error', duration: 5000 });
     }
   };
 
   const handleStart = () => {
     if (loading || (quizState && quizState.status === 'running')) return;
+    
+    // Emit game-started event with activeGameIndex for players to sync
+    import('../lib/socket').then(({ getSessionSocket }) => {
+      getSessionSocket().then((socket: any) => {
+        socket.socket?.emit('session:game-started', {
+          sessionId: session.id,
+          gameType: 'quiz',
+          activeGameIndex: session.activeGameIndex
+        });
+        console.log('[HostQuizPanel] Emitted game-started event with activeGameIndex:', session.activeGameIndex);
+      });
+    });
+    
     dispatch(
       startQuizThunk({
         sessionId: session.id,
@@ -305,13 +326,13 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     // Guard: Only allow reveal if host controls are enabled
     if (!showHostControls) {
       console.error('[HostQuizPanel] Cannot reveal - not a host session');
-      alert('Cannot reveal: This action is only available to hosts');
+      toast.showToast({ message: 'Cannot reveal: This action is only available to hosts', type: 'error', duration: 5000 });
       return;
     }
     
     if (!quizState || !session) {
       console.error('[HostQuizPanel] Cannot reveal - missing quizState or session');
-      alert('Cannot reveal: Missing quiz state or session');
+      toast.showToast({ message: 'Cannot reveal: Missing quiz state or session', type: 'error', duration: 5000 });
       return;
     }
     
@@ -364,7 +385,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
       }
       
       console.error('[HostQuizPanel] Error message to display:', errorMessage);
-      alert(`Reveal failed:\n${errorMessage}\n\nCheck the console for more details.`);
+        toast.showToast({ message: `Reveal failed: ${errorMessage}`, type: 'error', duration: 7000 });
     }
   };
 
@@ -410,9 +431,9 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
         } catch (error: any) {
           console.error('[HostQuizPanel] Failed to advance round:', error);
           if (error.message?.includes('last round')) {
-            alert('🎉 Quiz Complete! All rounds finished.');
+            toast.showToast({ message: '🎉 Quiz Complete! All rounds finished.', type: 'success', duration: 5000 });
           } else {
-            alert('Failed to advance to next round. Check console for details.');
+            toast.showToast({ message: 'Failed to advance to next round. Check console for details.', type: 'error', duration: 5000 });
           }
         }
       } else {
@@ -468,13 +489,13 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
       setCurrentQuestionIndex(0);
       
       // Don't auto-start - let host click "Start Question"
-      alert(`✅ Advanced to Round ${roundInfo.session.currentCategoryIndex + 1}: ${roundInfo.currentCategory.name}`);
+      toast.showToast({ message: `✅ Advanced to Round ${roundInfo.session.currentCategoryIndex + 1}: ${roundInfo.currentCategory.name}`, type: 'success', duration: 5000 });
     } catch (error: any) {
       console.error('[HostQuizPanel] Failed to advance round:', error);
       if (error.message?.includes('last round')) {
-        alert('🎉 Quiz Complete! You are already at the last round.');
+        toast.showToast({ message: '🎉 Quiz Complete! You are already at the last round.', type: 'info', duration: 5000 });
       } else {
-        alert('Failed to advance to next round. Check console for details.');
+        toast.showToast({ message: 'Failed to advance to next round. Check console for details.', type: 'error', duration: 5000 });
       }
     }
   };
@@ -496,13 +517,13 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
       setCurrentQuestionIndex(0);
       
       // Don't auto-start - let host click "Start Question"
-      alert(`⬅️ Moved back to Round ${roundInfo.session.currentCategoryIndex + 1}: ${roundInfo.currentCategory.name}`);
+      toast.showToast({ message: `⬅️ Moved back to Round ${roundInfo.session.currentCategoryIndex + 1}: ${roundInfo.currentCategory.name}`, type: 'success', duration: 5000 });
     } catch (error: any) {
       console.error('[HostQuizPanel] Failed to go to previous round:', error);
       if (error.message?.includes('first round')) {
-        alert('Already at the first round.');
+        toast.showToast({ message: 'Already at the first round.', type: 'info', duration: 4000 });
       } else {
-        alert('Failed to go to previous round. Check console for details.');
+        toast.showToast({ message: 'Failed to go to previous round. Check console for details.', type: 'error', duration: 5000 });
       }
     }
   };

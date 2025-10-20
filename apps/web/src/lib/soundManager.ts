@@ -20,7 +20,7 @@
  * ```
  */
 
-export type SoundType = 'coin' | 'coin_wrong' | 'buzzer' | 'background' | 'notification';
+export type SoundType = 'coin' | 'coin_wrong' | 'buzzer' | 'background' | 'notification' | 'timer' | 'image-appear';
 
 interface SoundSettings {
   masterVolume: number; // 0-100
@@ -35,6 +35,8 @@ interface SoundSettings {
   buzzerSoundPath: string;
   backgroundMusicPath: string;
   notificationSoundPath: string;
+  timerSoundEnabled: boolean;
+  timerSoundPath: string;
 }
 
 interface SoundCache {
@@ -316,11 +318,13 @@ export class SoundManager {
   private loadSounds(): void {
     if (!this.settings) return;
 
-    this.loadSound('coin', this.settings.coinSoundPath);
-    this.loadSound('coin_wrong', this.settings.coinWrongSoundPath);
-    this.loadSound('buzzer', this.settings.buzzerSoundPath);
-    this.loadSound('background', this.settings.backgroundMusicPath);
-    this.loadSound('notification', this.settings.notificationSoundPath);
+  this.loadSound('coin', this.settings.coinSoundPath);
+  this.loadSound('coin_wrong', this.settings.coinWrongSoundPath);
+  this.loadSound('buzzer', this.settings.buzzerSoundPath);
+  this.loadSound('background', this.settings.backgroundMusicPath);
+  this.loadSound('notification', this.settings.notificationSoundPath);
+  this.loadSound('timer', this.settings.timerSoundPath);
+  this.loadSound('image-appear', '/sounds/image-appear.mp3');
   }
 
   /**
@@ -378,6 +382,10 @@ export class SoundManager {
         return this.settings.backgroundMusicEnabled;
       case 'notification':
         return this.settings.notificationsEnabled;
+      case 'timer':
+        return this.settings.timerSoundEnabled;
+      case 'image-appear':
+        return this.settings.notificationsEnabled; // Use notification toggle for image-appear
       default:
         return false;
     }

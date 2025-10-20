@@ -1,15 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { resetSession } from '../store/slices/sessionSlice';
 import { computeTeamScores } from '@pkg/core';
 import { HostQuizPanel } from '../components/HostQuizPanel';
+import { PlayerBioscopePanel } from '../components/PlayerBioscopePanel';
 import { ScoreboardPane } from '../components/ScoreboardPane';
 import { getSessionSocket } from '../lib/socket';
 import { useQuizSync } from '../hooks/useQuizSync';
+import { useToast } from '../components/ToastProvider';
+import { useBioscopeSync } from '../hooks/useBioscopeSync';
 import { useBuzzerSync } from '../hooks/useBuzzerSync';
 import { PlayerBuzzerButton } from '../components/PlayerBuzzerButton';
 import { TeamNameBadge } from '../components/TeamNameBadge';
+import { submitBioscopeAnswer } from '../store/slices/bioscopeSlice';
 
 export function PlayerLobby() {
   const dispatch = useAppDispatch();
@@ -18,9 +22,17 @@ export function PlayerLobby() {
   const status = useAppSelector((s) => s.session.status);
   const error = useAppSelector((s) => s.session.error);
   const quizCardRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  // Derived selectors and local state hooks - keep these at top so hook order is stable
+  const quizState = useAppSelector((s) => s.quiz.current);
+  const bioscopeState = useAppSelector((s) => s.bioscope.currentGame);
+  const bioscopeLoading = useAppSelector((s) => s.bioscope.loading);
+  const [isSubmittingAnswer, setIsSubmittingAnswer] = useState(false);
 
   // Sync quiz state via WebSocket
   useQuizSync();
+  useBioscopeSync();
   useBuzzerSync();
 
   // Listen for being removed by host
@@ -30,7 +42,7 @@ export function PlayerLobby() {
     const handleRemoved = (...args: unknown[]) => {
       const payload = args[0] as { participantId: string };
       if (payload.participantId === participantId) {
-        alert('You have been removed from the session by the host.');
+        toast.showToast({ message: 'You have been removed from the session by the host.', type: 'info', duration: 5000 });
         dispatch(resetSession());
       }
     };
@@ -47,9 +59,9 @@ export function PlayerLobby() {
   }, [participantId, dispatch]);
 
   const handleLeaveSession = () => {
-    if (confirm('Are you sure you want to leave this session?')) {
-      dispatch(resetSession());
-    }
+    // Non-blocking leave: leave immediately and show toast
+    dispatch(resetSession());
+    toast.showToast({ message: 'Left the session', type: 'info', duration: 3000 });
   };
 
   // Show loading state
@@ -105,12 +117,36 @@ export function PlayerLobby() {
   const me = participants.find((p) => p.id === participantId);
   const myTeam = teams.find((t) => t.participants.some((p) => p.id === participantId));
   const scores = computeTeamScores(safeSession as any);
-  const quizState = useAppSelector((s) => s.quiz.current);
   const buzzerState = quizState?.buzzerState;
   const isBuzzerOpen = buzzerState?.isOpen || false;
+
+  // Handler for submitting bioscope answers
+  const handleSubmitBioscopeAnswer = useCallback(async (answer: string) => {
+    if (!session?.id || !participantId || !me) {
+      console.error('[PlayerLobby] Missing required data for answer submission');
+      return;
+    }
+
+    setIsSubmittingAnswer(true);
+    try {
+      await dispatch(submitBioscopeAnswer({
+        sessionId: session.id,
+        participantId,
+        participantName: me.displayName,
+        answer,
+      })).unwrap();
+      console.log('[PlayerLobby] Answer submitted successfully');
+    } catch (err) {
+      console.error('[PlayerLobby] Failed to submit answer:', err);
+      toast.showToast({ message: 'Failed to submit answer. Please try again.', type: 'error', duration: 5000 });
+    } finally {
+      setIsSubmittingAnswer(false);
+    }
+  }, [session?.id, participantId, me, dispatch]);
   
   // Debug logging
   console.log('[PlayerLobby] Session has', safeSession.scores.length, 'score records');
+  console.log('[PlayerLobby] Bioscope state:', bioscopeState);
   console.log('[PlayerLobby] Computed team scores:', scores);
 
   // Auto-scroll to quiz card when quiz becomes active
@@ -227,9 +263,68 @@ export function PlayerLobby() {
         </details>
       </div>
 
-      {/* Quiz Panel - Full width, always visible */}
-      <div ref={quizCardRef}>
-        <HostQuizPanel showHostControls={false} allowPlayerInput={true} />
+      {/* Active Game Card - Only show the currently active game */}
+      <div className="space-y-6 mt-6">
+        {session.games && session.games.length > 0 ? (
+          (() => {
+            const activeGame = session.games[session.activeGameIndex];
+            if (!activeGame) {
+              return (
+                <div className="rounded-xl bg-white/10 backdrop-blur p-6 text-center">
+                  <p className="text-sm opacity-60">
+                    <FormattedMessage id="playerLobby.noActiveGame" defaultMessage="Waiting for host to activate a game..." />
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                ref={quizCardRef}
+                className="rounded-xl border border-white/20 bg-white/5 p-4"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-2xl">{activeGame.type === 'quiz' ? '📝' : '🎬'}</span>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold">{activeGame.name}</h3>
+                    <p className="text-xs opacity-60">
+                      {activeGame.type === 'quiz' ? (
+                        <FormattedMessage id="playerLobby.quizGame" defaultMessage="Quiz Game" />
+                      ) : (
+                        <FormattedMessage id="playerLobby.bioscopeGame" defaultMessage="Bioscope Game" />
+                      )}
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 text-xs rounded-full bg-green-500/20 text-green-600 border border-green-500/30 font-medium">
+                    <FormattedMessage id="playerLobby.nowPlaying" defaultMessage="Now Playing" />
+                  </span>
+                </div>
+
+                {/* Render the appropriate game panel based on type */}
+                {activeGame.type === 'quiz' && (
+                  <HostQuizPanel showHostControls={false} allowPlayerInput={true} />
+                )}
+                {activeGame.type === 'bioscope' && session.id && participantId && (
+                  <PlayerBioscopePanel
+                    gameState={bioscopeState}
+                    sessionId={session.id}
+                    participantId={participantId}
+                    playerEngagementType={activeGame.state?.playerEngagementType}
+                    onSubmitAnswer={handleSubmitBioscopeAnswer}
+                    isSubmitting={isSubmittingAnswer}
+                    disabled={bioscopeState?.status === 'revealed' || bioscopeState?.status === 'completed'}
+                  />
+                )}
+              </div>
+            );
+          })()
+        ) : (
+          <div className="rounded-xl bg-white/10 backdrop-blur p-6 text-center">
+            <p className="text-sm opacity-60">
+              <FormattedMessage id="playerLobby.noGames" defaultMessage="No games attached to this session." />
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Fixed Buzzer Button at Bottom - Only visible when buzzer is open */}

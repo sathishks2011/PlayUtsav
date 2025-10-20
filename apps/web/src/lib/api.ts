@@ -1,15 +1,18 @@
-import type { 
-  Session, 
-  Team, 
-  QuizState, 
-  QuizTemplateDTO, 
-  QuizTemplateResponse,
-  UpdateQuestionDTO,
-  QuestionResponse,
-  CategoryResponse,
-  RoundInfo
+import {
+  transformSession,
+  type Session,
+  type Team,
+  type QuizState,
+  type QuizTemplateDTO,
+  type QuizTemplateResponse,
+  type UpdateQuestionDTO,
+  type QuestionResponse,
+  type CategoryResponse,
+  type RoundInfo,
 } from '@pkg/core';
 import { getApiBaseUrl } from './config';
+
+export { transformSession };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const base = await getApiBaseUrl();
@@ -25,12 +28,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json();
 }
 
-export function listSessions(): Promise<Session[]> {
-  return request('/sessions');
+export async function listSessions(): Promise<Session[]> {
+  const sessions = await request<any[]>('/sessions');
+  return sessions.map(transformSession);
 }
 
-export function getSessionById(sessionId: string): Promise<Session> {
-  return request(`/sessions/${sessionId}`);
+export async function getSessionById(sessionId: string): Promise<Session> {
+  const session = await request<any>(`/sessions/${sessionId}`);
+  return transformSession(session);
 }
 
 export function deleteSession(sessionId: string): Promise<{ success: boolean; message: string }> {
@@ -45,22 +50,33 @@ export function restoreSession(sessionId: string): Promise<{ success: boolean; m
   });
 }
 
+export function resetAllGames(sessionId: string): Promise<{ success: boolean }> {
+  return request(`/sessions/${sessionId}/reset-all`, {
+    method: 'POST',
+  });
+}
+
 export function listDeletedSessions(): Promise<Session[]> {
   return request('/sessions/deleted/list');
 }
 
-export function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
-  return request<Session>('/sessions', {
+export async function createSession(payload: { hostName?: string; maxPlayers?: number; language?: string; playerEngagementType?: string }) {
+  const session = await request<any>('/sessions', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  return transformSession(session);
 }
 
-export function joinSession(payload: { code: string; displayName: string }) {
-  return request<{ session: Session; participant: { id: string } }>('/sessions/join', {
+export async function joinSession(payload: { code: string; displayName: string }) {
+  const result = await request<{ session: any; participant: { id: string } }>('/sessions/join', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  return {
+    session: transformSession(result.session),
+    participant: result.participant
+  };
 }
 
 export function addTeam(sessionId: string, payload: { name: string; color?: string }) {
@@ -150,6 +166,32 @@ export function overrideBuzzerControl(sessionId: string, payload: { participantI
   });
 }
 
+// Bioscope Buzzer API
+export function openBioscopeBuzzer(sessionId: string) {
+  return request(`/sessions/${sessionId}/bioscope/buzzer/open`, {
+    method: 'POST',
+  });
+}
+
+export function closeBioscopeBuzzer(sessionId: string) {
+  return request(`/sessions/${sessionId}/bioscope/buzzer/close`, {
+    method: 'POST',
+  });
+}
+
+export function resetBioscopeBuzzer(sessionId: string) {
+  return request(`/sessions/${sessionId}/bioscope/buzzer/reset`, {
+    method: 'POST',
+  });
+}
+
+export function pressBioscopeBuzzer(sessionId: string, participantId: string) {
+  return request(`/sessions/${sessionId}/bioscope/buzzer/press`, {
+    method: 'POST',
+    body: JSON.stringify({ participantId }),
+  });
+}
+
 // Auth API
 export type User = {
   id: string;
@@ -229,11 +271,29 @@ export function getQuestionsByCategory(categoryId: string) {
 }
 
 // Session-Template Integration API
-export function attachQuizTemplate(sessionId: string, templateId: string) {
-  return request<Session>(`/sessions/${sessionId}/attach-template`, {
+export async function attachQuizTemplate(sessionId: string, templateId: string) {
+  const session = await request<any>(`/sessions/${sessionId}/attach-template`, {
     method: 'POST',
     body: JSON.stringify({ templateId }),
   });
+  return transformSession(session);
+}
+
+export async function attachBioscopeTemplate(sessionId: string, templateId: string) {
+  const result = await request<any>(`/bioscope/templates/${templateId}/attach`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionId }),
+  });
+  // Fetch the updated session to get the complete data
+  return getSessionById(sessionId);
+}
+
+export async function resetBioscopeGame(sessionId: string) {
+  await request<any>(`/bioscope/sessions/${sessionId}/reset`, {
+    method: 'POST',
+  });
+  // Fetch the updated session to get the complete data
+  return getSessionById(sessionId);
 }
 
 export function updateRound(sessionId: string, categoryIndex: number, questionIndex: number) {

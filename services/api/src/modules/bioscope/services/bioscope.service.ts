@@ -1,14 +1,106 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../../../prisma.service';
+import { SessionsService } from '../../../services/sessions.service';
 import {
   CreateBioscopeTemplateDto,
   UpdateBioscopeTemplateDto,
   BioscopeStateDto,
 } from '../dto';
+import { SessionGateway } from '../../../gateways/session.gateway';
+import { BioscopeGateway } from '../bioscope.gateway';
 
 @Injectable()
 export class BioscopeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private sessionsService: SessionsService,
+    private sessionGateway: SessionGateway,
+    @Inject(forwardRef(() => BioscopeGateway))
+    private bioscopeGateway: BioscopeGateway,
+  ) {}
+
+  // ==================== Buzzer Management ====================
+
+  async openBuzzer(sessionId: string) {
+    const bioscopeSession = await this.getBioscopeSession(sessionId);
+    const updatedState = { isOpen: true };
+
+    await this.prisma.bioscopeSession.update({
+      where: { id: bioscopeSession.id },
+      data: { buzzerState: JSON.stringify(updatedState) },
+    });
+
+    this.sessionGateway.emitBioscopeBuzzerOpened(sessionId, updatedState);
+    return { success: true, state: updatedState };
+  }
+
+  async closeBuzzer(sessionId: string) {
+    const bioscopeSession = await this.getBioscopeSession(sessionId);
+    const currentState = bioscopeSession.buzzerState ? JSON.parse(bioscopeSession.buzzerState) : {};
+    const updatedState = { ...currentState, isOpen: false };
+
+    await this.prisma.bioscopeSession.update({
+      where: { id: bioscopeSession.id },
+      data: { buzzerState: JSON.stringify(updatedState) },
+    });
+
+    this.sessionGateway.emitBioscopeBuzzerClosed(sessionId, updatedState);
+    return { success: true, state: updatedState };
+  }
+
+  async resetBuzzer(sessionId: string) {
+    const bioscopeSession = await this.getBioscopeSession(sessionId);
+    const updatedState = { isOpen: false, lockedForParticipantId: null, pressedBy: null, pressedAt: null };
+
+    await this.prisma.bioscopeSession.update({
+      where: { id: bioscopeSession.id },
+      data: { buzzerState: JSON.stringify(updatedState) },
+    });
+
+    this.sessionGateway.emitBioscopeBuzzerReset(sessionId, updatedState);
+    return { success: true, state: updatedState };
+  }
+
+  async pressBuzzer(sessionId: string, participantId: string) {
+    const bioscopeSession = await this.getBioscopeSession(sessionId);
+    const buzzerState = bioscopeSession.buzzerState ? JSON.parse(bioscopeSession.buzzerState) : {};
+
+    if (!buzzerState.isOpen || buzzerState.lockedForParticipantId) {
+      throw new ConflictException('Buzzer is not open or has already been pressed.');
+    }
+
+    const participant = await this.prisma.participant.findUnique({
+      where: { id: participantId },
+      include: { team: true },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Participant not found');
+    }
+
+    const pressInfo = {
+      participantId: participant.id,
+      displayName: participant.displayName,
+      teamId: participant.teamId,
+      teamName: participant.team?.name,
+      pressedAt: new Date().toISOString(),
+    };
+
+    const updatedState = {
+      ...buzzerState,
+      isOpen: false,
+      lockedForParticipantId: participantId,
+      pressedBy: pressInfo,
+    };
+
+    await this.prisma.bioscopeSession.update({
+      where: { id: bioscopeSession.id },
+      data: { buzzerState: JSON.stringify(updatedState) },
+    });
+
+    this.sessionGateway.emitBioscopeBuzzerPressed(sessionId, pressInfo, updatedState);
+    return { success: true, state: updatedState };
+  }
 
   // ==================== Template Management ====================
 
@@ -137,8 +229,32 @@ export class BioscopeService {
       where: { sessionId },
     });
 
-    if (existing) {
+    if (existing && existing.status !== 'idle') {
       throw new ConflictException('Bioscope game already started for this session');
+    }
+
+    // If bioscope session exists but is idle, update it to start the game
+    if (existing) {
+      const bioscopeSession = await this.prisma.bioscopeSession.update({
+        where: { sessionId },
+        data: {
+          templateId,
+          currentRoundId: 0,
+          currentImageId: 0,
+          status: 'active',
+          revealedImages: '[]',
+          timerDuration: template.configuration.timer_seconds || 30,
+        },
+      });
+
+      // Get the updated game state
+      const gameState = await this.getGameState(sessionId);
+
+      // Emit WebSocket updates to all clients (both session and bioscope namespaces)
+      await this.sessionGateway.emitSessionUpdate(sessionId);
+      await this.bioscopeGateway.emitGameStarted(sessionId);
+
+      return gameState;
     }
 
     // Create bioscope session
@@ -148,13 +264,52 @@ export class BioscopeService {
         templateId,
         currentRoundId: 0,
         currentImageId: 0,
-        status: 'idle',
+        status: 'active',
         revealedImages: '[]',
         timerDuration: template.configuration.timer_seconds || 30,
       },
     });
 
-    return this.getGameState(sessionId);
+    // Get the updated game state
+    const gameState = await this.getGameState(sessionId);
+
+    // Emit WebSocket updates to all clients (both session and bioscope namespaces)
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    await this.bioscopeGateway.emitGameStarted(sessionId);
+
+    return gameState;
+  }
+
+  async resetGame(sessionId: string) {
+    const bioscopeSession = await this.getBioscopeSession(sessionId);
+
+    // Delete all answers for this game
+    await this.prisma.bioscopeAnswer.deleteMany({
+      where: { bioscopeId: bioscopeSession.id },
+    });
+
+    // Reset the bioscope session to idle state
+    await this.prisma.bioscopeSession.update({
+      where: { id: bioscopeSession.id },
+      data: {
+        currentRoundId: 0,
+        currentImageId: 0,
+        status: 'idle',
+        revealedImages: '[]',
+        timerStartedAt: null,
+        buzzerState: null,
+        playerEngagementType: null,
+      },
+    });
+
+    // Get the updated game state
+    const gameState = await this.getGameState(sessionId);
+
+    // Emit WebSocket updates to all clients (both session and bioscope namespaces)
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    this.bioscopeGateway.emitStateUpdate(sessionId, gameState);
+
+    return gameState;
   }
 
   async revealImage(sessionId: string, imageId?: number) {
@@ -191,7 +346,15 @@ export class BioscopeService {
       },
     });
 
-    return this.getGameState(sessionId);
+    // Get updated game state
+    const gameState = await this.getGameState(sessionId);
+
+    // Emit WebSocket updates
+    console.log('[BioscopeService] Emitting image revealed events for session:', sessionId);
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    await this.bioscopeGateway.emitImageRevealed(sessionId, gameState);
+
+    return gameState;
   }
 
   async revealAnswer(sessionId: string) {
@@ -236,7 +399,15 @@ export class BioscopeService {
       },
     });
 
-    return this.getGameState(sessionId);
+    // Get updated game state
+    const gameState = await this.getGameState(sessionId);
+
+    // Emit WebSocket updates
+    console.log('[BioscopeService] Emitting answer revealed events for session:', sessionId);
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    await this.bioscopeGateway.emitAnswerRevealed(sessionId, gameState);
+
+    return gameState;
   }
 
   async submitAnswer(
@@ -296,6 +467,16 @@ export class BioscopeService {
   ) {
     const bioscopeSession = await this.getBioscopeSession(sessionId);
 
+    // Get participant to find their team
+    const participant = await this.prisma.participant.findUnique({
+      where: { id: participantId },
+      include: { team: true },
+    });
+
+    if (!participant) {
+      throw new NotFoundException('Participant not found');
+    }
+
     // Check if participant already has a manual score for this round
     const existing = await this.prisma.bioscopeAnswer.findUnique({
       where: {
@@ -308,6 +489,10 @@ export class BioscopeService {
     });
 
     if (existing) {
+      // Calculate the difference for score adjustment
+      const previousPoints = existing.pointsAwarded || 0;
+      const pointsDelta = points - previousPoints;
+
       // Update existing answer with manual score
       await this.prisma.bioscopeAnswer.update({
         where: { id: existing.id },
@@ -317,6 +502,16 @@ export class BioscopeService {
           isManualScore: true,
         },
       });
+
+      // Adjust the score by the difference
+      if (pointsDelta !== 0 && participant.teamId) {
+        await this.sessionsService.adjustScore(
+          sessionId,
+          participant.teamId,
+          pointsDelta,
+          reason || 'Bioscope manual score adjustment',
+        );
+      }
     } else {
       // Create new answer record with manual score
       await this.prisma.bioscopeAnswer.create({
@@ -332,7 +527,21 @@ export class BioscopeService {
           isManualScore: true,
         },
       });
+
+      // Add score to the team
+      if (participant.teamId) {
+        await this.sessionsService.adjustScore(
+          sessionId,
+          participant.teamId,
+          points,
+          reason || 'Bioscope manual score',
+        );
+      }
     }
+
+    // Get updated game state and emit WebSocket update
+    const gameState = await this.getGameState(sessionId);
+    this.bioscopeGateway.emitStateUpdate(sessionId, gameState);
 
     return {
       success: true,
@@ -357,6 +566,13 @@ export class BioscopeService {
         },
       });
 
+      // Get updated game state
+      const gameState = await this.getGameState(sessionId);
+
+      // Emit WebSocket updates
+      await this.sessionGateway.emitSessionUpdate(sessionId);
+      await this.bioscopeGateway.emitGameCompleted(sessionId);
+
       return {
         success: true,
         completed: true,
@@ -376,7 +592,14 @@ export class BioscopeService {
       },
     });
 
-    return this.getGameState(sessionId);
+    // Get updated game state
+    const gameState = await this.getGameState(sessionId);
+
+    // Emit WebSocket updates
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    this.bioscopeGateway.emitStateUpdate(sessionId, gameState);
+
+    return gameState;
   }
 
   async getGameState(sessionId: string): Promise<BioscopeStateDto> {

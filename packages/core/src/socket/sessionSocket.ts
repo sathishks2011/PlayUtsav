@@ -1,4 +1,5 @@
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
+import type { DisconnectReason, Socket } from 'socket.io-client';
 import type { Session, QuizState, BuzzerState } from '../types';
 
 export type BuzzerOpenedEvent = {
@@ -81,7 +82,7 @@ export type SessionSocket = {
 };
 
 export function createSessionSocket(baseUrl: string): SessionSocket {
-  const socket: Socket = io(`${baseUrl}/sessions`, { 
+  const socket = io(`${baseUrl}/sessions`, { 
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: Infinity,
@@ -91,19 +92,23 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
   });
 
   // Prevent unhandled errors from crashing the process
-  socket.io.on('error', (error) => {
+  socket.io.on('error', (error: unknown) => {
     console.error('[SessionSocket] Socket.IO engine error:', error);
   });
 
   // Handle low-level engine errors (TCP, network)
-  socket.io.engine.on('error', (error: any) => {
-    console.error('[SessionSocket] Engine error:', error.code || error.message);
+  socket.io.engine.on('error', (error: unknown) => {
+    const info =
+      typeof error === 'object' && error !== null
+        ? (error as { code?: string; message?: string })
+        : undefined;
+    console.error('[SessionSocket] Engine error:', info?.code || info?.message || error);
     // These errors will be handled by reconnection logic, don't crash
   });
 
   // Catch any other socket errors to prevent process crash
   if (typeof socket.on === 'function') {
-    (socket as any).on('error', (error: any) => {
+    (socket as any).on('error', (error: unknown) => {
       console.error('[SessionSocket] Socket error:', error);
     });
   }
@@ -127,7 +132,7 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
     connectionChangeListeners.forEach(cb => {
       try {
         cb(state);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[SessionSocket] Error in connection change listener:', error);
       }
     });
@@ -139,32 +144,32 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
     notifyConnectionChange('connected');
     
     // Resubscribe to all sessions after reconnection
-    subscribedSessions.forEach(sessionId => {
+    subscribedSessions.forEach((sessionId) => {
       console.log('[SessionSocket] Resubscribing to session:', sessionId);
       try {
         socket.emit('session:subscribe', { sessionId });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[SessionSocket] Error resubscribing to session:', sessionId, error);
       }
     });
   });
 
-  socket.on('disconnect', (reason) => {
+  socket.on('disconnect', (reason: string) => {
     console.log('[SessionSocket] Disconnected from server:', reason);
     notifyConnectionChange('disconnected');
   });
 
-  socket.on('reconnect', (attemptNumber) => {
+  socket.on('reconnect', (attemptNumber: number) => {
     console.log('[SessionSocket] Reconnected after', attemptNumber, 'attempts');
     notifyConnectionChange('connected');
   });
 
-  socket.on('reconnect_attempt', (attemptNumber) => {
+  socket.on('reconnect_attempt', (attemptNumber: number) => {
     console.log('[SessionSocket] Reconnection attempt:', attemptNumber);
     notifyConnectionChange('reconnecting');
   });
 
-  socket.on('reconnect_error', (error) => {
+  socket.on('reconnect_error', (error: unknown) => {
     console.error('[SessionSocket] Reconnection error:', error);
     notifyConnectionChange('error');
   });
@@ -174,7 +179,7 @@ export function createSessionSocket(baseUrl: string): SessionSocket {
     notifyConnectionChange('error');
   });
 
-  socket.on('connect_error', (error) => {
+  socket.on('connect_error', (error: unknown) => {
     console.error('[SessionSocket] Connection error:', error);
     notifyConnectionChange('error');
   });

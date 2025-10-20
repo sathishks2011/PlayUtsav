@@ -1,0 +1,9 @@
+{
+  "id": "com.playutsav.tv",
+  "version": "0.1.0",
+  "vendor": "PlayUtsav",
+  "type": "web",
+  "main": "index.html",
+  "title": "PlayUtsav TV",
+  "icon": "icon.png"
+}

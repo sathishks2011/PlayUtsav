@@ -47,7 +47,9 @@ export class QuizController {
     const parsed = startSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const quizState = await this.quiz.start(sessionId, parsed.data);
+    await this.sessions.updateStatus(sessionId, 'ACTIVE');
     await this.gateway.emitQuizUpdate(sessionId, quizState);
+    await this.gateway.emitSessionUpdate(sessionId);
     return quizState;
   }
 

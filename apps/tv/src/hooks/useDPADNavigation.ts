@@ -29,25 +29,27 @@ interface NavigationMap {
  */
 export function useDPADNavigation(
   focusableElements: FocusableElement[],
-  options: UseDPADNavigationOptions = {}
+  options: UseDPADNavigationOptions = {},
 ) {
   const { initialFocusId, onBack, onExit, wrapAround = false, debug = false } = options;
   const currentFocusIdRef = useRef<string | null>(initialFocusId || null);
   const navigationMapRef = useRef<NavigationMap>({});
 
   const log = useCallback(
-    (...args: any[]) => {
+    (...args: unknown[]) => {
       if (debug) {
         console.log('[DPAD Navigation]', ...args);
       }
     },
-    [debug]
+    [debug],
   );
 
   // Calculate spatial navigation map based on element positions
   const calculateNavigationMap = useCallback(() => {
     const map: NavigationMap = {};
-    const activeElements = focusableElements.filter((el) => !el.disabled && el.ref.current);
+    const activeElements = focusableElements
+      .filter((el) => !el.disabled && el.ref.current)
+      .map((el) => el) as FocusableElement[];
 
     activeElements.forEach((element) => {
       const { id, position } = element;
@@ -57,7 +59,7 @@ export function useDPADNavigation(
       map[id] = {};
 
       // Find best candidate in each direction
-      ['up', 'down', 'left', 'right'].forEach((direction) => {
+      (['up', 'down', 'left', 'right'] as Direction[]).forEach((direction) => {
         let bestCandidate: FocusableElement | null = null;
         let bestScore = Infinity;
 
@@ -76,29 +78,28 @@ export function useDPADNavigation(
 
           switch (direction) {
             case 'up':
-              isInDirection = dy < -10; // Must be significantly above
+              isInDirection = dy < -10;
               primaryDistance = Math.abs(dy);
               secondaryDistance = Math.abs(dx);
               break;
             case 'down':
-              isInDirection = dy > 10; // Must be significantly below
+              isInDirection = dy > 10;
               primaryDistance = Math.abs(dy);
               secondaryDistance = Math.abs(dx);
               break;
             case 'left':
-              isInDirection = dx < -10; // Must be significantly to the left
+              isInDirection = dx < -10;
               primaryDistance = Math.abs(dx);
               secondaryDistance = Math.abs(dy);
               break;
             case 'right':
-              isInDirection = dx > 10; // Must be significantly to the right
+              isInDirection = dx > 10;
               primaryDistance = Math.abs(dx);
               secondaryDistance = Math.abs(dy);
               break;
           }
 
           if (isInDirection) {
-            // Score based on primary distance and secondary alignment
             const score = primaryDistance + secondaryDistance * 0.5;
             if (score < bestScore) {
               bestScore = score;
@@ -107,9 +108,9 @@ export function useDPADNavigation(
           }
         });
 
-        if (bestCandidate !== null) {
-          const dirKey = direction as Direction;
-          map[id][dirKey] = bestCandidate.id;
+        if (bestCandidate) {
+          const candidateId = (bestCandidate as FocusableElement).id;
+          map[id][direction] = candidateId;
         }
       });
     });
@@ -118,7 +119,6 @@ export function useDPADNavigation(
     log('Navigation map calculated:', map);
   }, [focusableElements, log]);
 
-  // Focus an element by ID
   const focusElement = useCallback(
     (id: string) => {
       const element = focusableElements.find((el) => el.id === id);
@@ -137,15 +137,13 @@ export function useDPADNavigation(
 
       return false;
     },
-    [focusableElements, log]
+    [focusableElements, log],
   );
 
-  // Navigate in a direction
   const navigate = useCallback(
-    (direction: 'up' | 'down' | 'left' | 'right') => {
+    (direction: Direction) => {
       const currentId = currentFocusIdRef.current;
       if (!currentId) {
-        // No current focus, focus first element
         const firstEnabled = focusableElements.find((el) => !el.disabled);
         if (firstEnabled) {
           focusElement(firstEnabled.id);
@@ -159,35 +157,30 @@ export function useDPADNavigation(
       if (nextId) {
         focusElement(nextId);
       } else if (wrapAround) {
-        // Find edge elements and wrap around
-        const activeElements = focusableElements.filter((el) => !el.disabled);
+        const activeElements = focusableElements.filter((el) => !el.disabled) as FocusableElement[];
         if (activeElements.length === 0) return;
 
         let wrapTarget: FocusableElement | null = null;
 
         switch (direction) {
           case 'up':
-            // Find bottom-most element
             wrapTarget = activeElements.reduce((lowest, el) =>
-              el.position.y > lowest.position.y ? el : lowest
+              el.position.y > lowest.position.y ? el : lowest,
             );
             break;
           case 'down':
-            // Find top-most element
             wrapTarget = activeElements.reduce((highest, el) =>
-              el.position.y < highest.position.y ? el : highest
+              el.position.y < highest.position.y ? el : highest,
             );
             break;
           case 'left':
-            // Find right-most element
             wrapTarget = activeElements.reduce((rightmost, el) =>
-              el.position.x > rightmost.position.x ? el : rightmost
+              el.position.x > rightmost.position.x ? el : rightmost,
             );
             break;
           case 'right':
-            // Find left-most element
             wrapTarget = activeElements.reduce((leftmost, el) =>
-              el.position.x < leftmost.position.x ? el : leftmost
+              el.position.x < leftmost.position.x ? el : leftmost,
             );
             break;
         }
@@ -199,10 +192,9 @@ export function useDPADNavigation(
         log('No navigation target in direction:', direction);
       }
     },
-    [focusableElements, focusElement, wrapAround, log]
+    [focusableElements, focusElement, wrapAround, log],
   );
 
-  // Handle select action
   const handleSelect = useCallback(() => {
     const currentId = currentFocusIdRef.current;
     if (!currentId) return;
@@ -214,40 +206,39 @@ export function useDPADNavigation(
     }
   }, [focusableElements, log]);
 
-  // Keyboard event handler
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      switch (event.key) {
         case 'ArrowUp':
-          e.preventDefault();
+          event.preventDefault();
           navigate('up');
           break;
         case 'ArrowDown':
-          e.preventDefault();
+          event.preventDefault();
           navigate('down');
           break;
         case 'ArrowLeft':
-          e.preventDefault();
+          event.preventDefault();
           navigate('left');
           break;
         case 'ArrowRight':
-          e.preventDefault();
+          event.preventDefault();
           navigate('right');
           break;
         case 'Enter':
         case ' ':
-          e.preventDefault();
+          event.preventDefault();
           handleSelect();
           break;
         case 'Backspace':
         case 'Escape':
-          e.preventDefault();
+          event.preventDefault();
           onBack?.();
           break;
         case 'x':
         case 'X':
-          if (e.ctrlKey) {
-            e.preventDefault();
+          if (event.ctrlKey) {
+            event.preventDefault();
             onExit?.();
           }
           break;
@@ -258,12 +249,10 @@ export function useDPADNavigation(
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate, handleSelect, onBack, onExit]);
 
-  // Recalculate navigation map when elements change
   useEffect(() => {
     calculateNavigationMap();
   }, [calculateNavigationMap]);
 
-  // Set initial focus
   useEffect(() => {
     if (initialFocusId && !currentFocusIdRef.current) {
       focusElement(initialFocusId);

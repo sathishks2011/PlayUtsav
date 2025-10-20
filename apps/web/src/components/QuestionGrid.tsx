@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useToast } from './ToastProvider';
 import {
   createColumnHelper,
   flexRender,
@@ -105,7 +106,8 @@ export default function QuestionGrid({ template, onClose }: QuestionGridProps) {
       setEditForm({});
     } catch (error) {
       console.error('Failed to update question:', error);
-      alert('Failed to update question. Please try again.');
+      const toast = useToast();
+      toast.showToast({ message: 'Failed to update question. Please try again.', type: 'error', duration: 5000 });
     } finally {
       setSaving(false);
     }

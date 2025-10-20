@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { setPlayerSession, setError } from '../store/slices/sessionSlice';
 import { getSessionSocket } from '../lib/socket';
-import { getApiBaseUrl } from '../lib/config';
+import { getSessionById } from '../lib/api';
 
 /**
  * Restores player session from localStorage on app load.
@@ -35,21 +35,8 @@ export function usePlayerSessionRestore() {
 
       console.log('[usePlayerSessionRestore] Restoring player session:', sessionId);
 
-      // Validate session is still active by fetching it
-      getApiBaseUrl()
-        .then((baseUrl) => {
-          return fetch(`${baseUrl}/sessions/${sessionId}`, {
-            credentials: 'include',
-          });
-        })
-        .then((res) => {
-          if (!res.ok) {
-            console.warn('[usePlayerSessionRestore] Session not found, clearing localStorage');
-            localStorage.removeItem('playerSession');
-            throw new Error('Session not found');
-          }
-          return res.json();
-        })
+      // Validate session is still active by fetching it (with transformation)
+      getSessionById(sessionId)
         .then((session) => {
           // Check if participant is still in the session
           const participant = session.participants.find((p: any) => p.id === participantId);

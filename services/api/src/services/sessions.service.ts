@@ -30,6 +30,7 @@ export class SessionsService {
         teams: { include: { participants: true } },
         participants: true,
         scores: true,
+        bioscopeSession: true,
       },
     });
   }

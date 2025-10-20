@@ -81,12 +81,76 @@
   transition: all 0.2s ease-in-out;
 }
 
+.menu-item:focus {
+  outline: 4px solid rgba(255,235,59,0.95);
+  outline-offset: 6px;
+}
+
 .instructions {
-  color: #999;
+  margin-top: 20px;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 18px;
   text-align: center;
-  margin-top: 20px;
+  line-height: 1.4;
 }
+
+.instructions p {
+  margin: 4px 0;
+}
+
+.debug {
+  background-color: rgba(255, 152, 0, 0.2);
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 10px 20px;
+  color: #ff9800;
+  font-size: 18px;
+  text-align: center;
+}
+
+.debug-large {
+  position: fixed;
+  right: 24px;
+  top: 24px;
+  z-index: 1200;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border: 2px solid rgba(255, 152, 0, 0.9);
+  padding: 14px 18px;
+  font-size: 20px;
+  min-width: 340px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.debug-large .debug-line {
+  margin: 6px 0;
+  font-weight: 500;
+}
+
+/* Big centered debug overlay for quick remote verification */
+.debug-overlay {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 99999;
+  pointer-events: none; /* don't block remote input */
+}
+.debug-overlay-inner {
+  background: linear-gradient(90deg, rgba(0,0,0,0.9) 0%, rgba(15,20,40,0.85) 100%);
+  border: 4px solid rgba(233,69,96,0.95);
+  padding: 28px 36px;
+  border-radius: 14px;
+  color: #fff;
+  min-width: 720px;
+  text-align: center;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7);
+}
+.debug-overlay .label { font-size: 16px; color: rgba(255,255,255,0.7); margin-bottom: 6px }
+.debug-overlay .big-key { font-size: 36px; font-weight: 700; margin: 6px 0; color: #ffeb3b }
+.debug-overlay .focus-line { margin-top: 8px; font-size: 20px; color: #ffffff }
+
 
 .instructions p {
   margin: 0;
@@ -894,8 +958,13 @@
 .rank-badge {
   font-size: 20px;
   font-weight: bold;
-  min-width: 40px;
+  min-width: 48px;
   text-align: center;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  background-color: rgba(0, 0, 0, 0.25);
 }
 
 .team-info-score {
@@ -909,6 +978,17 @@
   font-size: 16px;
   color: white;
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
 .score-bar-container-score {
@@ -920,8 +1000,8 @@
 
 .score-bar-score {
   height: 100%;
-  background: linear-gradient(90deg, #e94560 0%, #ff9800 100%);
-  transition: width 1s ease-out;
+  background: linear-gradient(90deg, rgba(233, 69, 96, 0.85) 0%, rgba(255, 152, 0, 0.85) 100%);
+  transition: width 0.8s ease-out;
   border-radius: 3px;
 }
 
@@ -976,3 +1056,340 @@
 
 * { outline: none; }
 
+
+/* Quiz + Bioscope layout */
+.quiz-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  height: 100vh;
+  background: radial-gradient(circle at top, #141a2c 0%, #080c17 100%);
+}
+
+.quiz-layout .quiz-screen {
+  height: 100vh;
+  overflow-y: auto;
+  padding: 32px 48px;
+  box-sizing: border-box;
+}
+
+.quiz-layout .tv-bioscope-activity {
+  height: 100vh;
+  overflow-y: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 32px;
+}
+
+/* Bioscope Screen */
+.bioscope-screen,
+.bioscope-screen--empty {
+  width: 100vw;
+  height: 100vh;
+  background: radial-gradient(circle at top, #1c2952 0%, #0a0f1f 58%, #05070d 100%);
+  color: #f2f4ff;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 48px;
+  box-sizing: border-box;
+}
+
+.bioscope-empty-card {
+  margin: auto;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  padding: 48px;
+  border-radius: 16px;
+  max-width: 520px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.bioscope-empty-card h2 {
+  margin-bottom: 12px;
+  font-size: 28px;
+}
+
+.bioscope-empty-card p {
+  margin: 0 0 24px 0;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bioscope-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.bioscope-title {
+  font-size: 36px;
+  margin: 0;
+}
+
+.bioscope-subtitle {
+  margin: 6px 0 0 0;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.bioscope-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bioscope-session-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bioscope-session-code strong {
+  font-size: 22px;
+  color: #fff;
+  letter-spacing: 2px;
+}
+
+.bioscope-status {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background-color: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bioscope-status--answering {
+  background-color: rgba(58, 162, 255, 0.16);
+  border-color: rgba(58, 162, 255, 0.45);
+  color: #70b6ff;
+}
+
+.bioscope-status--revealed,
+.bioscope-status--completed {
+  background-color: rgba(67, 208, 142, 0.15);
+  border-color: rgba(67, 208, 142, 0.45);
+  color: #7ee6b8;
+}
+
+.bioscope-status--active,
+.bioscope-status--revealing {
+  background-color: rgba(239, 198, 70, 0.16);
+  border-color: rgba(239, 198, 70, 0.45);
+  color: #f9d861;
+}
+
+.bioscope-timer {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.bioscope-timer strong {
+  font-size: 22px;
+  color: #fff;
+}
+
+.bioscope-content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 32px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.bioscope-images {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+}
+
+.bioscope-section-title {
+  font-size: 20px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+}
+
+.bioscope-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.bioscope-image-card {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 96px;
+  transition: transform 0.25s ease, border 0.25s ease, background 0.25s ease;
+}
+
+.bioscope-image-card--revealed {
+  border-color: rgba(94, 234, 212, 0.6);
+  background: linear-gradient(135deg, rgba(94, 234, 212, 0.18), rgba(45, 168, 138, 0.12));
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(94, 234, 212, 0.18);
+}
+
+.bioscope-image-index {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.bioscope-image-hint {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bioscope-image-state {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.bioscope-image-placeholder {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 48px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.bioscope-recent-images {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bioscope-recent-image-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bioscope-recent-image {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(94, 234, 212, 0.4);
+  color: rgba(94, 234, 212, 0.9);
+  background: rgba(94, 234, 212, 0.1);
+  font-size: 14px;
+}
+
+.bioscope-empty-text {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.bioscope-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.bioscope-panel {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 20px 24px rgba(0, 0, 0, 0.2);
+}
+
+.bioscope-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.bioscope-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.bioscope-list-item strong {
+  font-size: 16px;
+  color: #fff;
+}
+
+.bioscope-answer-value {
+  margin-left: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.bioscope-answer-points {
+  font-weight: 600;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.bioscope-answer-points.positive {
+  color: #7ee6b8;
+}
+
+.bioscope-answer-points.negative {
+  color: #ff8b8b;
+}
+
+.bioscope-team-tag {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.bioscope-timestamp {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.bioscope-answer-panel .bioscope-answer-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(94, 234, 212, 0.1);
+  border: 1px solid rgba(94, 234, 212, 0.45);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: #7ee6b8;
+}
+
+.bioscope-answer-alt {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.65);
+}

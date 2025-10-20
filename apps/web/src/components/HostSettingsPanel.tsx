@@ -20,8 +20,10 @@ import {
   setAutoRevealTimeout,
 } from '../store/slices/settingsSlice';
 
+import { useToast } from './ToastProvider';
 export function HostSettingsPanel() {
   const dispatch = useDispatch();
+  const toast = useToast();
   
   // Quiz settings
   const timer = useSelector((s: RootState) => s.settings.timerSeconds);
@@ -138,10 +140,10 @@ export function HostSettingsPanel() {
                       audio.pause();
                       
                       console.log('[Audio Unlock] Audio unlocked successfully');
-                      alert('✅ Audio system unlocked! You can now test sounds.');
+                      toast.showToast({ message: '✅ Audio system unlocked! You can now test sounds.', type: 'success', duration: 3500 });
                     } catch (error) {
                       console.error('[Audio Unlock] Failed:', error);
-                      alert('⚠️ Audio unlock failed. Try clicking anywhere on the page first.');
+                      toast.showToast({ message: '⚠️ Audio unlock failed. Try clicking anywhere on the page first.', type: 'error', duration: 5000 });
                     }
                   }}
                   className="px-3 py-1.5 rounded bg-blue-500/30 border border-blue-400/50 text-blue-100 hover:bg-blue-500/40 text-xs font-medium whitespace-nowrap"
@@ -208,7 +210,7 @@ export function HostSettingsPanel() {
                       console.log('[Test Button] playSound called successfully');
                     } catch (error) {
                       console.error('[Test Button] Failed to play coin sound:', error);
-                      alert(`Failed to play sound:\n${error instanceof Error ? error.message : String(error)}\n\nCheck browser console (F12) for details.`);
+                      toast.showToast({ message: `Failed to play sound: ${error instanceof Error ? error.message : String(error)}. Check console for details.`, type: 'error', duration: 7000 });
                     }
                   }}
                   disabled={!sounds.soundsEnabled || !sounds.coinSoundEnabled}
@@ -252,7 +254,7 @@ export function HostSettingsPanel() {
                       soundManager.playSound('coin_wrong', sounds.masterVolume / 100);
                     } catch (error) {
                       console.error('[Test Button] Failed to play wrong answer sound:', error);
-                      alert(`Failed to play sound:\n${error instanceof Error ? error.message : String(error)}`);
+                      toast.showToast({ message: `Failed to play sound: ${error instanceof Error ? error.message : String(error)}`, type: 'error', duration: 6000 });
                     }
                   }}
                   disabled={!sounds.soundsEnabled || !sounds.coinWrongSoundEnabled}
@@ -296,7 +298,8 @@ export function HostSettingsPanel() {
                       soundManager.playSound('buzzer', sounds.masterVolume / 100);
                     } catch (error) {
                       console.error('[Test Button] Failed to play buzzer sound:', error);
-                      alert(`Failed to play sound:\n${error instanceof Error ? error.message : String(error)}`);
+                      toast.showToast({ message: `Failed to play sound: ${error instanceof Error ? error.message : String(error)}`, type: 'error', duration: 6000 });
+                        toast.showToast({ message: 'Enable background music first to test', type: 'info', duration: 3500 });
                     }
                   }}
                   disabled={!sounds.soundsEnabled || !sounds.buzzerSoundEnabled}
@@ -340,7 +343,7 @@ export function HostSettingsPanel() {
                       soundManager.playSound('notification', sounds.masterVolume / 100);
                     } catch (error) {
                       console.error('[Test Button] Failed to play notification sound:', error);
-                      alert(`Failed to play sound:\n${error instanceof Error ? error.message : String(error)}`);
+                        toast.showToast({ message: `Failed to play sound: ${error instanceof Error ? error.message : String(error)}`, type: 'error', duration: 6000 });
                     }
                   }}
                   disabled={!sounds.soundsEnabled || !sounds.notificationSoundsEnabled}
@@ -388,11 +391,11 @@ export function HostSettingsPanel() {
                         soundManager.stopBackgroundMusic();
                         setTimeout(() => soundManager.startBackgroundMusic(), 100);
                       } else {
-                        alert('Enable background music first to test');
+                        toast.showToast({ message: 'Enable background music first to test', type: 'info', duration: 3500 });
                       }
-                    } catch (error) {
+                      } catch (error) {
                       console.error('[Test Button] Failed to play background music:', error);
-                      alert(`Failed to play music:\n${error instanceof Error ? error.message : String(error)}`);
+                      toast.showToast({ message: `Failed to play music: ${error instanceof Error ? error.message : String(error)}`, type: 'error', duration: 6000 });
                     }
                   }}
                   disabled={!sounds.soundsEnabled}
@@ -460,7 +463,7 @@ export function HostSettingsPanel() {
                     console.log(`[Test All] Testing ${count > 0 ? 'all' : 'no'} enabled sounds with 1 second interval`);
                   } catch (error) {
                     console.error('[Test All] Failed to test sounds:', error);
-                    alert(`Failed to play sounds:\n${error instanceof Error ? error.message : String(error)}`);
+                    toast.showToast({ message: `Failed to play sounds: ${error instanceof Error ? error.message : String(error)}`, type: 'error', duration: 6000 });
                   }
                 }}
                 disabled={!sounds.soundsEnabled}

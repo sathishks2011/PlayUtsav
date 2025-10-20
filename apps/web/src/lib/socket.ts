@@ -10,3 +10,7 @@ export async function getSessionSocket(): Promise<SessionSocket> {
   return sessionSocketPromise;
 }
 
+// Export bioscope socket
+export { getBioscopeSocket, resetBioscopeSocket } from './bioscopeSocket';
+export type { BioscopeSocket, BioscopeGameState } from './bioscopeSocket';
+

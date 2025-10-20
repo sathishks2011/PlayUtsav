@@ -12,6 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { BioscopeService } from './services';
+import { SessionGateway } from '../../gateways/session.gateway';
 import {
   CreateBioscopeTemplateDto,
   UpdateBioscopeTemplateDto,
@@ -30,7 +31,10 @@ import {
  */
 @Controller('bioscope')
 export class BioscopeController {
-  constructor(private readonly bioscopeService: BioscopeService) {}
+  constructor(
+    private readonly bioscopeService: BioscopeService,
+    private readonly sessionGateway: SessionGateway,
+  ) {}
 
   // ==================== Template Management ====================
 
@@ -111,6 +115,17 @@ export class BioscopeController {
   }
 
   /**
+   * Reset a Bioscope game back to idle state
+   * POST /bioscope/sessions/:sessionId/reset
+   */
+  @Post('sessions/:sessionId/reset')
+  async resetGame(
+    @Param('sessionId') sessionId: string,
+  ): Promise<BioscopeStateDto> {
+    return this.bioscopeService.resetGame(sessionId);
+  }
+
+  /**
    * Attach a template to a session (alternative endpoint)
    * POST /bioscope/templates/:id/attach
    */
@@ -171,13 +186,18 @@ export class BioscopeController {
     @Param('sessionId') sessionId: string,
     @Body() dto: Omit<ManualScoreDto, 'sessionId'>,
   ) {
-    return this.bioscopeService.manualScore(
+    const result = await this.bioscopeService.manualScore(
       sessionId,
       dto.participantId,
       dto.participantName,
       dto.points,
       dto.reason,
     );
+    
+    // Emit session update to sync scoreboard
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+    
+    return result;
   }
 
   /**

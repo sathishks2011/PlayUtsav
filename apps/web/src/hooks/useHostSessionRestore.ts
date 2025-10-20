@@ -62,6 +62,15 @@ export function useHostSessionRestore() {
             return;
           }
 
+          // Restore activeGameIndex if it was saved
+          if (data.activeGameIndex !== undefined && 
+              session.games && 
+              data.activeGameIndex >= 0 && 
+              data.activeGameIndex < session.games.length) {
+            session.activeGameIndex = data.activeGameIndex;
+            console.info('[useHostSessionRestore] Restored activeGameIndex:', data.activeGameIndex);
+          }
+
           console.info('[useHostSessionRestore] ✅ Host session restored successfully');
           dispatch(setHostSession(session));
         })

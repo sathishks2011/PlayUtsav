@@ -13,6 +13,8 @@ export type SoundSettings = {
   backgroundMusicPath: string;
   notificationSoundsEnabled: boolean;
   notificationSoundPath: string;
+  timerSoundEnabled: boolean;
+  timerSoundPath: string;
   explanationAudioPath: string | null;
 };
 
@@ -61,6 +63,8 @@ const initialState: SettingsState = {
     backgroundMusicPath: '/sounds/background.mp3',
     notificationSoundsEnabled: true,
     notificationSoundPath: '/sounds/notification.mp3',
+    timerSoundEnabled: true,
+    timerSoundPath: '/sounds/timer.mp3',
     explanationAudioPath: null,
   },
   
@@ -150,6 +154,14 @@ const settingsSlice = createSlice({
     setAutoRevealTimeout(state, action: PayloadAction<number>) {
       state.reveal.autoRevealTimeout = Math.max(3, Math.min(60, action.payload));
     },
+
+    // Timer sound settings
+    setTimerSoundEnabled(state: SettingsState, action: PayloadAction<boolean>) {
+      state.sounds.timerSoundEnabled = action.payload;
+    },
+    setTimerSoundPath(state: SettingsState, action: PayloadAction<string>) {
+      state.sounds.timerSoundPath = action.payload;
+    },
   },
 });
 
@@ -169,6 +181,8 @@ export const {
   setBackgroundMusicPath,
   setNotificationSoundsEnabled,
   setNotificationSoundPath,
+  setTimerSoundEnabled,
+  setTimerSoundPath,
   setExplanationAudioPath,
   setAnimationsEnabled,
   setReduceMotion,

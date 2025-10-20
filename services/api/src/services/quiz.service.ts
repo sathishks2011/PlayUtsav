@@ -514,4 +514,22 @@ export class QuizService {
       buzzerState,
     };
   }
+
+  async resetSession(sessionId: string) {
+    // Remove all quiz rounds and answers linked to this session
+    await (this.prisma as any).quizAnswer.deleteMany({
+      where: {
+        quizRound: {
+          sessionId,
+        },
+      },
+    });
+
+    await (this.prisma as any).quizRound.deleteMany({
+      where: { sessionId },
+    });
+
+    // Clear any in-memory buzzer state
+    this.buzzerStates.delete(sessionId);
+  }
 }

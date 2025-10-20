@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useToast } from './ToastProvider';
 import type { Team } from '@pkg/core';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
@@ -8,14 +9,19 @@ import {
   awardManualScore,
   nextBioscopeRound,
   fetchBioscopeGameState,
+  resetBioscopeGame,
   updateTimeRemaining,
+  updateGameState,
   clearError,
 } from '../store/slices/bioscopeSlice';
-import { BioscopeTemplateSelector } from './BioscopeTemplateSelector';
 import { BioscopeImageRevealControl } from './BioscopeImageRevealControl';
 import { BioscopeManualScoring } from './BioscopeManualScoring';
 import { BioscopeTimer } from './BioscopeTimer';
 import { BioscopeGameStatePanel } from './BioscopeGameState';
+import { HostBioscopeBuzzerControls } from './HostBioscopeBuzzerControls';
+import { getBioscopeSocket, type BioscopeGameState } from '../lib/socket';
+import { useBioscopeSounds } from '../hooks/useBioscopeSounds';
+import { useBioscopeBuzzerSync } from '../hooks/useBioscopeBuzzerSync';
 
 type ManualParticipant = {
   id: string;
@@ -37,12 +43,45 @@ export function HostBioscopePanel() {
   const dispatch = useAppDispatch();
   const session = useAppSelector((s) => s.session.current);
   const user = useAppSelector((s) => s.auth.user);
-  const { selectedTemplate, currentGame, loading, error, lastAction } = useAppSelector((s) => s.bioscope);
+  const { currentGame, loading, error, lastAction } = useAppSelector((s) => s.bioscope);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const toast = useToast();
 
   const sessionId = session?.id;
   const hostId = session?.hostId ?? user?.id ?? undefined;
+  
+  // Get the active game from the games array
+  const activeGame = session?.games?.[session.activeGameIndex];
+  const isBioscopeGame = activeGame?.type === 'bioscope';
+  const bioscopeSession = isBioscopeGame ? activeGame.state : (session as any)?.bioscopeSession;
+  const bioscopeTemplateId = isBioscopeGame ? activeGame.templateId : bioscopeSession?.templateId;
+
+  console.log('[HostBioscopePanel] Debug:', {
+    hasGames: Boolean(session?.games),
+    gamesCount: session?.games?.length,
+    activeGameIndex: session?.activeGameIndex,
+    activeGame,
+    isBioscopeGame,
+    bioscopeSession,
+    bioscopeTemplateId,
+    bioscopeSessionStatus: bioscopeSession?.status
+  });
+
+  // Initialize sound system with safe access
+  const timerSoundEnabled = currentGame?.template?.configuration?.timer_sound_enabled ?? true;
+  const bioscopeSounds = useBioscopeSounds({
+    enabled: timerSoundEnabled,
+    timerWarningThreshold: 10,
+  });
+
+  // Sync buzzer state via WebSocket
+  // Temporarily disabled to fix blank screen issue
+  // useBioscopeBuzzerSync(sessionId || '');
+
+  // Store sound functions in a ref to avoid re-subscribing to WebSocket
+  const soundFunctionsRef = React.useRef(bioscopeSounds);
+  soundFunctionsRef.current = bioscopeSounds;
 
   useEffect(() => {
     if (error) {
@@ -50,20 +89,131 @@ export function HostBioscopePanel() {
     }
   }, [error]);
 
+  // Auto-load game state only if bioscope game has been started
   useEffect(() => {
-    if (!sessionId || currentGame) {
+    if (!sessionId || !bioscopeSession) {
+      console.log('[HostBioscopePanel] No bioscope template attached');
       return;
     }
 
-    dispatch(fetchBioscopeGameState({ sessionId }))
-      .unwrap()
-      .catch(() => {
-        dispatch(clearError());
-      });
-  }, [dispatch, sessionId, currentGame]);
+    // Only fetch if game has been started (status is not 'idle')
+    if (bioscopeSession.status !== 'idle') {
+      console.log('[HostBioscopePanel] Bioscope game in progress, loading state...');
+      dispatch(fetchBioscopeGameState({ sessionId }))
+        .unwrap()
+        .catch((err) => {
+          console.error('[HostBioscopePanel] Error loading game state:', err);
+          // Error will be shown in UI
+        });
+    } else {
+      console.log('[HostBioscopePanel] Bioscope template attached, ready to start');
+    }
+  }, [dispatch, sessionId, bioscopeSession]);
+
+  // Play sounds when game state changes (image revealed or answer revealed)
+  const prevRevealedCountRef = React.useRef<number>(0);
+  const prevStatusRef = React.useRef<string>('');
 
   useEffect(() => {
+    if (!currentGame) return;
+
+    const revealedCount = currentGame.revealedImages.length;
+    const status = currentGame.status;
+
+    // Play image reveal sound when a new image is revealed
+    if (revealedCount > prevRevealedCountRef.current && prevRevealedCountRef.current > 0) {
+      soundFunctionsRef.current.playImageRevealSound();
+    }
+
+    // Play correct answer sound (coin.mp3) when status changes to 'revealed'
+    if (status === 'revealed' && prevStatusRef.current !== 'revealed' && prevStatusRef.current !== '') {
+      soundFunctionsRef.current.playCorrectAnswerSound();
+    }
+
+    prevRevealedCountRef.current = revealedCount;
+    prevStatusRef.current = status;
+  }, [currentGame?.revealedImages.length, currentGame?.status]);
+
+  // Subscribe to bioscope WebSocket events
+  useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    let mounted = true;
+
+    getBioscopeSocket().then((socket) => {
+      if (!mounted) {
+        return;
+      }
+
+      console.log('[HostBioscopePanel] Subscribing to bioscope session:', sessionId);
+      socket.subscribe(sessionId);
+
+      // Handle game state updates - backend sends full state, no need to fetch
+      const handleGameStateUpdate = (...args: unknown[]) => {
+        const data = args[0] as BioscopeGameState;
+        console.log('[HostBioscopePanel] Received bioscope:game-state-update', data);
+        if (data.sessionId === sessionId) {
+          // Update Redux state directly with the received data
+          dispatch(updateGameState(data));
+        }
+      };
+
+      // Handle image reveals
+      const handleImageRevealed = (...args: unknown[]) => {
+        const data = args[0] as { sessionId: string; imageId: number };
+        console.log('[HostBioscopePanel] Image revealed:', data);
+        // State update will come via STATE_UPDATED event, no need to fetch
+      };
+
+      // Handle answer reveals
+      const handleAnswerRevealed = (...args: unknown[]) => {
+        const data = args[0] as { sessionId: string };
+        console.log('[HostBioscopePanel] Answer revealed:', data);
+        // State update will come via STATE_UPDATED event, no need to fetch
+      };
+
+      // Handle round changes
+      const handleRoundChanged = (...args: unknown[]) => {
+        const data = args[0] as { sessionId: string; roundId: number };
+        console.log('[HostBioscopePanel] Round changed:', data);
+        // State update will come via STATE_UPDATED event, no need to fetch
+      };
+
+      // Handle game completion
+      const handleGameCompleted = (...args: unknown[]) => {
+        const data = args[0] as { sessionId: string };
+        console.log('[HostBioscopePanel] Game completed:', data);
+        // State update will come via STATE_UPDATED event, no need to fetch
+      };
+
+      socket.on('bioscope:state-updated', handleGameStateUpdate);
+      socket.on('bioscope:image-revealed', handleImageRevealed);
+      socket.on('bioscope:answer-revealed', handleAnswerRevealed);
+      socket.on('bioscope:round-complete', handleRoundChanged);
+      socket.on('bioscope:game-completed', handleGameCompleted);
+
+      return () => {
+        console.log('[HostBioscopePanel] Unsubscribing from bioscope session');
+        socket.off('bioscope:state-updated', handleGameStateUpdate);
+        socket.off('bioscope:image-revealed', handleImageRevealed);
+        socket.off('bioscope:answer-revealed', handleAnswerRevealed);
+        socket.off('bioscope:round-complete', handleRoundChanged);
+        socket.off('bioscope:game-completed', handleGameCompleted);
+        socket.unsubscribe(sessionId);
+      };
+    });
+
+    return () => {
+      mounted = false;
+    };
+  }, [dispatch, sessionId]);
+
+  // Timer effect - update time remaining and play tick sounds
+  useEffect(() => {
     if (!currentGame || !currentGame.timerStartedAt || currentGame.status !== 'answering') {
+      soundFunctionsRef.current.stopTimerTick();
       return;
     }
 
@@ -77,11 +227,17 @@ export function HostBioscopePanel() {
     const tick = () => {
       const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
       dispatch(updateTimeRemaining(remaining));
+      
+      // Play timer tick sound for last 10 seconds
+      soundFunctionsRef.current.startTimerTick(remaining);
     };
 
     tick();
     const interval = window.setInterval(tick, 1000);
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+      soundFunctionsRef.current.stopTimerTick();
+    };
   }, [dispatch, currentGame?.timerStartedAt, currentGame?.timerDuration, currentGame?.status]);
 
   const participantsForScoring = useMemo<ManualParticipant[]>(() => {
@@ -100,8 +256,7 @@ export function HostBioscopePanel() {
 
   const teams: Team[] = session?.teams ?? [];
 
-  const allowManualScoring = currentGame?.template.configuration.allow_manual_scoring ??
-    selectedTemplate?.configuration?.allow_manual_scoring ?? true;
+  const allowManualScoring = currentGame?.template?.configuration?.allow_manual_scoring ?? true;
 
   const isRevealing = loading && lastAction === 'reveal-image';
   const revealDisabled = !currentGame || loading || currentGame.status === 'completed';
@@ -109,11 +264,12 @@ export function HostBioscopePanel() {
     currentGame &&
       currentGame.revealedImages.length > 0 &&
       currentGame.status !== 'revealed' &&
-      currentGame.status !== 'completed'
+      currentGame.status !== 'completed' &&
+      !loading
   );
   const canAdvanceRound = Boolean(currentGame && currentGame.status === 'revealed');
 
-  const duration = currentGame?.timerDuration ?? selectedTemplate?.configuration?.timer_seconds ?? 30;
+  const duration = currentGame?.timerDuration ?? 30;
   const timeRemaining = currentGame?.timeRemaining ?? null;
   const isTimerActive = Boolean(currentGame && currentGame.status === 'answering');
 
@@ -123,18 +279,58 @@ export function HostBioscopePanel() {
   }, []);
 
   const handleStartGame = useCallback(async () => {
-    if (!sessionId || !selectedTemplate) {
+    console.log('[HostBioscopePanel] Start button clicked');
+    console.log('[HostBioscopePanel] sessionId:', sessionId);
+    console.log('[HostBioscopePanel] bioscopeSession:', bioscopeSession);
+    console.log('[HostBioscopePanel] bioscopeTemplateId:', bioscopeTemplateId);
+    
+    if (!sessionId || !bioscopeTemplateId) {
+      const errorMsg = 'No bioscope template attached to this session';
+      console.error('[HostBioscopePanel]', errorMsg);
+      setLocalError(errorMsg);
       return;
     }
 
     clearMessages();
     try {
-      await dispatch(startBioscopeGame({ sessionId, templateId: selectedTemplate.id })).unwrap();
-      setFeedback(`Started "${selectedTemplate.name}"`);
+      console.log('[HostBioscopePanel] Dispatching startBioscopeGame...');
+      const result = await dispatch(startBioscopeGame({ sessionId, templateId: bioscopeTemplateId })).unwrap();
+      console.log('[HostBioscopePanel] Game started successfully:', result);
+      setFeedback('Bioscope game started!');
+
+      // Find bioscope game index
+      const bioscopeGameIndex = session?.games?.findIndex(g => g.type === 'bioscope');
+      if (bioscopeGameIndex !== undefined && bioscopeGameIndex !== -1) {
+        dispatch({ type: 'session/setActiveGameIndex', payload: bioscopeGameIndex });
+        console.log('[HostBioscopePanel] Set activeGameIndex to bioscope:', bioscopeGameIndex);
+      } else {
+        console.warn('[HostBioscopePanel] Could not find bioscope game index!');
+      }
+
+      // Emit game-started event with activeGameIndex for players to sync
+      const activeGameIndex = bioscopeGameIndex;
+      const activeGameType = session?.games?.[activeGameIndex]?.type;
+      console.log('[HostBioscopePanel] Preparing to emit game-started:', {
+        sessionId,
+        activeGameIndex,
+        activeGameType,
+        games: session?.games?.map(g => g.type)
+      });
+      import('../lib/socket').then(({ getSessionSocket }) => {
+        getSessionSocket().then((socket: any) => {
+          socket.socket?.emit('session:game-started', {
+            sessionId,
+            gameType: 'bioscope',
+            activeGameIndex
+          });
+          console.log('[HostBioscopePanel] Emitted game-started event with activeGameIndex:', activeGameIndex, 'type:', activeGameType);
+        });
+      });
     } catch (err) {
+      console.error('[HostBioscopePanel] Error starting game:', err);
       setLocalError(getErrorMessage(err));
     }
-  }, [dispatch, sessionId, selectedTemplate, clearMessages]);
+  }, [dispatch, sessionId, bioscopeTemplateId, clearMessages, session]);
 
   const handleRevealNext = useCallback(async () => {
     if (!sessionId) {
@@ -212,6 +408,34 @@ export function HostBioscopePanel() {
     }
   }, [dispatch, sessionId, clearMessages]);
 
+  const handleResetGame = useCallback(async () => {
+    if (!sessionId) {
+      return;
+    }
+
+    // Non-blocking reset: perform reset and show toast feedback
+
+    clearMessages();
+    try {
+      await dispatch(resetBioscopeGame({ sessionId })).unwrap();
+      setFeedback('Game reset successfully');
+      
+      // Emit game-reset event to notify players
+      import('../lib/socket').then(({ getSessionSocket }) => {
+        getSessionSocket().then((socket: any) => {
+          socket.socket?.emit('session:game-reset', {
+            sessionId,
+            gameType: 'bioscope'
+          });
+          console.log('[HostBioscopePanel] Emitted game-reset event');
+        });
+      });
+      toast.showToast({ message: 'Bioscope game reset', type: 'success', duration: 3500 });
+    } catch (err) {
+      setLocalError(getErrorMessage(err));
+    }
+  }, [dispatch, sessionId, clearMessages]);
+
   const handleTimerExpired = useCallback(() => {
     if (!sessionId) {
       return;
@@ -219,7 +443,53 @@ export function HostBioscopePanel() {
     dispatch(fetchBioscopeGameState({ sessionId }));
   }, [dispatch, sessionId]);
 
-  const isStartDisabled = !selectedTemplate || !sessionId || loading || Boolean(currentGame);
+  // Check if we have a valid session
+  if (!session || !sessionId) {
+    return (
+      <section className="space-y-6">
+        <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-5 text-center">
+          <p className="text-gray-400">No active session found.</p>
+        </div>
+      </section>
+    );
+  }
+
+  // Debug button state logic
+  console.log('[HostBioscopePanel] Button State Debug:');
+  console.log('  - bioscopeTemplateId:', bioscopeTemplateId);
+  console.log('  - sessionId:', sessionId);
+  console.log('  - loading:', loading);
+  console.log('  - bioscopeSession?.status:', bioscopeSession?.status);
+
+  // Check if we have a bioscope template attached and can start the game
+  const hasBioscopeTemplate = Boolean(bioscopeTemplateId);
+  // Check if game is actually started (not idle) rather than just if currentGame exists
+  const isGameStarted = bioscopeSession?.status && bioscopeSession.status !== 'idle';
+  const isStartDisabled = !hasBioscopeTemplate || !sessionId || loading || isGameStarted;
+
+  console.log('  - hasBioscopeTemplate:', hasBioscopeTemplate);
+  console.log('  - isGameStarted:', isGameStarted);
+  console.log('  - isStartDisabled:', isStartDisabled);
+  console.log('  - Reasons disabled:', {
+    noTemplate: !hasBioscopeTemplate,
+    noSessionId: !sessionId,
+    loading: loading,
+    gameStarted: isGameStarted
+  });
+
+  // Show warning if no template is attached
+  if (!hasBioscopeTemplate) {
+    return (
+      <section className="space-y-6">
+        <div className="rounded-xl border border-yellow-800 bg-yellow-900/20 p-5 text-center">
+          <h3 className="text-lg font-semibold text-yellow-200 mb-2">No Bioscope Template Attached</h3>
+          <p className="text-sm text-yellow-300">
+            Please select a Bioscope template when creating the session from the Dashboard.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-6">
@@ -228,7 +498,7 @@ export function HostBioscopePanel() {
           <div>
             <h2 className="text-xl font-semibold text-white">Bioscope Host Controls</h2>
             <p className="text-sm text-gray-400">
-              Load a template, reveal images, award points, and keep the game flowing.
+              Reveal images, award points, and keep the game flowing.
             </p>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-300">
@@ -243,13 +513,6 @@ export function HostBioscopePanel() {
           </div>
         </header>
 
-        <BioscopeTemplateSelector
-          hostId={hostId}
-          onTemplateSelect={() => {
-            clearMessages();
-          }}
-        />
-
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
@@ -262,6 +525,18 @@ export function HostBioscopePanel() {
             }`}
           >
             Start Bioscope
+          </button>
+          <button
+            type="button"
+            onClick={handleResetGame}
+            disabled={!sessionId || !bioscopeSession}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+              sessionId && bioscopeSession
+                ? 'border border-orange-500/40 bg-orange-500/10 text-orange-200 hover:bg-orange-500/20'
+                : 'cursor-not-allowed border border-gray-700 bg-gray-800 text-gray-500'
+            }`}
+          >
+            Reset Game
           </button>
           <button
             type="button"
@@ -308,7 +583,7 @@ export function HostBioscopePanel() {
                 </p>
               </div>
               <div className="text-sm text-gray-400">
-                {currentGame?.template.currentRound?.title ?? 'No round active'}
+                {currentGame?.template?.currentRound?.title ?? 'No round active'}
               </div>
             </header>
 
@@ -330,6 +605,11 @@ export function HostBioscopePanel() {
         </div>
 
         <div className="space-y-6">
+          {/* Temporarily disabled buzzer controls to fix blank screen issue */}
+          {/* {sessionId && bioscopeSession?.playerEngagementType === 'BUZZER' && (
+            <HostBioscopeBuzzerControls sessionId={sessionId} />
+          )} */}
+
           {allowManualScoring && (
             <BioscopeManualScoring
               teams={teams}
@@ -341,7 +621,7 @@ export function HostBioscopePanel() {
           <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-white">Round Controls</h3>
-              {currentGame?.template.currentRound && (
+              {currentGame?.template?.currentRound && (
                 <span className="text-sm text-gray-400">
                   Images revealed: {currentGame.revealedImages.length}
                 </span>
