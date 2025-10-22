@@ -12,6 +12,7 @@ import { useToast } from '../components/ToastProvider';
 import { useBioscopeSync } from '../hooks/useBioscopeSync';
 import { useBuzzerSync } from '../hooks/useBuzzerSync';
 import { PlayerBuzzerButton } from '../components/PlayerBuzzerButton';
+import { PlayerBioscopeBuzzerButton } from '../components/PlayerBioscopeBuzzerButton';
 import { TeamNameBadge } from '../components/TeamNameBadge';
 import { submitBioscopeAnswer } from '../store/slices/bioscopeSlice';
 
@@ -117,8 +118,22 @@ export function PlayerLobby() {
   const me = participants.find((p) => p.id === participantId);
   const myTeam = teams.find((t) => t.participants.some((p) => p.id === participantId));
   const scores = computeTeamScores(safeSession as any);
-  const buzzerState = quizState?.buzzerState;
-  const isBuzzerOpen = buzzerState?.isOpen || false;
+
+  // Get active game and check buzzer state for both quiz and bioscope
+  const activeGame = safeSession.games?.[safeSession.activeGameIndex];
+  const isQuizGame = activeGame?.type === 'quiz';
+  const isBioscopeGame = activeGame?.type === 'bioscope';
+
+  // Quiz buzzer state
+  const quizBuzzerState = quizState?.buzzerState;
+  const isQuizBuzzerOpen = quizBuzzerState?.isOpen || false;
+
+  // Bioscope buzzer state
+  const bioscopeBuzzerState = useAppSelector((s) => s.bioscope.buzzer);
+  const isBioscopeBuzzerOpen = bioscopeBuzzerState?.isOpen || false;
+
+  // Determine if buzzer should be shown
+  const isBuzzerOpen = isQuizGame ? isQuizBuzzerOpen : isBioscopeGame ? isBioscopeBuzzerOpen : false;
 
   // Handler for submitting bioscope answers
   const handleSubmitBioscopeAnswer = useCallback(async (answer: string) => {
@@ -263,7 +278,7 @@ export function PlayerLobby() {
         </details>
       </div>
 
-      {/* Active Game Card - Only show the currently active game */}
+      {/* Active Game Card - Only show the currently active game IF IT'S STARTED */}
       <div className="space-y-6 mt-6">
         {session.games && session.games.length > 0 ? (
           (() => {
@@ -273,6 +288,42 @@ export function PlayerLobby() {
                 <div className="rounded-xl bg-white/10 backdrop-blur p-6 text-center">
                   <p className="text-sm opacity-60">
                     <FormattedMessage id="playerLobby.noActiveGame" defaultMessage="Waiting for host to activate a game..." />
+                  </p>
+                </div>
+              );
+            }
+
+            // Check if the game has actually been started by the host
+            let isGameStarted = false;
+            if (activeGame.type === 'quiz') {
+              // Quiz is started when status is 'running' or 'revealed' (not 'idle')
+              isGameStarted = quizState?.status === 'running' || quizState?.status === 'revealed';
+              console.log('[PlayerLobby] Quiz game check:', {
+                hasQuizState: !!quizState,
+                quizStatus: quizState?.status,
+                isGameStarted,
+                sessionId: quizState?.sessionId,
+                currentSessionId: session.id
+              });
+            } else if (activeGame.type === 'bioscope') {
+              // Bioscope is started when status is not 'idle'
+              isGameStarted = bioscopeState?.status !== 'idle' && bioscopeState?.status !== undefined;
+              console.log('[PlayerLobby] Bioscope game check:', {
+                hasBioscopeState: !!bioscopeState,
+                bioscopeStatus: bioscopeState?.status,
+                isGameStarted
+              });
+            }
+
+            // Only show the game if it's been started
+            if (!isGameStarted) {
+              return (
+                <div className="rounded-xl bg-white/10 backdrop-blur p-6 text-center">
+                  <p className="text-sm opacity-60">
+                    <FormattedMessage
+                      id="playerLobby.waitingForStart"
+                      defaultMessage="Waiting for host to start the game..."
+                    />
                   </p>
                 </div>
               );
@@ -328,10 +379,13 @@ export function PlayerLobby() {
       </div>
 
       {/* Fixed Buzzer Button at Bottom - Only visible when buzzer is open */}
-      {session.playerEngagementType === 'BUZZER' && isBuzzerOpen && (
+      {isBuzzerOpen && (
         <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/95 to-transparent pt-4 pb-6 px-6 z-50">
           <div className="max-w-3xl mx-auto">
-            <PlayerBuzzerButton />
+            {isQuizGame && <PlayerBuzzerButton />}
+            {isBioscopeGame && session.id && participantId && (
+              <PlayerBioscopeBuzzerButton sessionId={session.id} participantId={participantId} />
+            )}
           </div>
         </div>
       )}

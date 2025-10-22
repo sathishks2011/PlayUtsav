@@ -7,19 +7,32 @@ import { fetchQuiz } from '../lib/api';
 export function useQuizSync() {
   const session = useAppSelector((s) => s.session.current);
   const sessionId = session?.id;
-  const hasQuizTemplate = Boolean(session?.quizTemplateId);
+
+  // Check if session has a quiz game attached (in the games array)
+  const quizGame = session?.games?.find(g => g.type === 'quiz');
+  const hasQuizGame = Boolean(quizGame && quizGame.templateId);
+
   const dispatch = useAppDispatch();
   const { socket, isConnected } = useWebSocket();
 
   useEffect(() => {
+    console.log('[useQuizSync] Effect triggered:', {
+      sessionId,
+      hasSession: !!session,
+      gamesCount: session?.games?.length,
+      hasQuizGame,
+      quizGameTemplateId: quizGame?.templateId,
+      socketConnected: isConnected
+    });
+
     if (!sessionId) {
       dispatch(clearQuiz());
       return;
     }
 
-    // Only sync quiz if session has a quiz template
-    if (!hasQuizTemplate) {
-      console.log('[useQuizSync] Session does not have a quiz template, skipping sync');
+    // Only sync quiz if session has a quiz game attached
+    if (!hasQuizGame) {
+      console.log('[useQuizSync] Session does not have a quiz game, skipping sync');
       dispatch(clearQuiz());
       return;
     }
@@ -52,5 +65,5 @@ export function useQuizSync() {
       console.log('[useQuizSync] Cleaning up quiz sync');
       socket.offQuiz(sessionId);
     };
-  }, [dispatch, sessionId, hasQuizTemplate, socket, isConnected]);
+  }, [dispatch, sessionId, hasQuizGame, socket, isConnected]);
 }

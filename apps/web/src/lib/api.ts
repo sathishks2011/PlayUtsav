@@ -22,8 +22,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || response.statusText);
+    const text = await response.text();
+    const err: any = new Error(text || response.statusText);
+    err.status = response.status;
+    err.body = text;
+    throw err;
   }
   return response.json();
 }
@@ -262,6 +265,13 @@ export function updateQuizQuestion(questionId: string, data: UpdateQuestionDTO) 
 
 export function deleteQuizTemplate(templateId: string) {
   return request<void>(`/quiz-templates/${templateId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function deleteBioscopeTemplate(templateId: string, hostId?: string) {
+  const queryParam = hostId ? `?hostId=${encodeURIComponent(hostId)}` : '';
+  return request<void>(`/bioscope/templates/${templateId}${queryParam}`, {
     method: 'DELETE',
   });
 }

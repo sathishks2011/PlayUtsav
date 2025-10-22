@@ -145,6 +145,19 @@ export const createBioscopeTemplate = createAsyncThunk(
   }
 );
 
+export const deleteBioscopeTemplate = createAsyncThunk(
+  'bioscope/deleteTemplate',
+  async (payload: { templateId: string; hostId?: string }, { rejectWithValue }) => {
+    try {
+      const { deleteBioscopeTemplate } = await import('../../lib/api');
+      await deleteBioscopeTemplate(payload.templateId, payload.hostId);
+      return payload.templateId;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to delete template');
+    }
+  }
+);
+
 export const startBioscopeGame = createAsyncThunk(
   'bioscope/startGame',
   async (payload: { sessionId: string; templateId: string }) => {
@@ -311,6 +324,20 @@ const bioscopeSlice = createSlice({
     });
     builder.addCase(createBioscopeTemplate.rejected, (state, action) => {
       state.loading = false;
+      state.error = action.error.message;
+    });
+
+    // Delete Template
+    builder.addCase(deleteBioscopeTemplate.pending, (state) => {
+      state.error = undefined;
+    });
+    builder.addCase(deleteBioscopeTemplate.fulfilled, (state, action) => {
+      state.templates = state.templates.filter((t) => t.id !== action.payload);
+      if (state.selectedTemplate?.id === action.payload) {
+        state.selectedTemplate = null;
+      }
+    });
+    builder.addCase(deleteBioscopeTemplate.rejected, (state, action) => {
       state.error = action.error.message;
     });
 

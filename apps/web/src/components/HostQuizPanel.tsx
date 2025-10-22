@@ -103,20 +103,31 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
     return () => window.clearInterval(timer);
   }, [quizState?.questionId, quizState?.createdAt, quizState?.duration]);
 
-  // Only load template questions when quiz game is explicitly started (status === 'active')
+  // Load template questions as soon as a quiz game with template is attached
+  // This ensures questions are loaded BEFORE starting the quiz
   useEffect(() => {
     // Find the quiz game in the session.games array
     const quizGame = session?.games?.find(g => g.type === 'quiz');
-    const quizStatus = quizGame?.state?.status;
     const quizTemplateId = quizGame?.templateId;
     const quizTemplate = quizGame?.state?.template;
-    if (!session?.id || !quizTemplateId || !quizGame || quizStatus !== 'active') {
-      // Only use sample questions if quiz is not started
+
+    console.log('[HostQuizPanel] Quiz template check:', {
+      hasSession: !!session?.id,
+      hasTemplateId: !!quizTemplateId,
+      hasQuizGame: !!quizGame,
+      templateName: quizTemplate?.name
+    });
+
+    if (!session?.id || !quizTemplateId || !quizGame) {
+      // No quiz game attached, use sample questions
+      console.log('[HostQuizPanel] No quiz template attached, using sample questions');
       setUsingTemplate(false);
       return;
     }
 
-    console.log('[HostQuizPanel] Quiz game is active, loading questions...');
+    // Quiz game with template exists - load the template questions
+    // Load immediately so they're available when host clicks "Start Quiz"
+    console.log('[HostQuizPanel] Quiz template detected, loading questions...');
     setLoadingTemplate(true);
 
     getRoundQuestions(session.id)
@@ -391,32 +402,46 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
 
   const handleNextQuestion = async () => {
     if (!session || loading) return;
-    
+
     // Reset local state
     setAllAnswered(false);
     setAutoRevealTimer(null);
-    
+
     if (usingTemplate && templateQuestions.length > 0) {
-      // Template mode: Check if we need to advance to next round
+      // Template mode: Use backend navigation to handle category/question advancement
       const nextQuestionIndex = currentQuestionIndex + 1;
-      
+
+      console.log('[HostQuizPanel] Next question requested:', {
+        currentCategoryIndex,
+        currentQuestionIndex,
+        nextQuestionIndex,
+        questionsInCategory: templateQuestions.length,
+        totalCategories: categories.length
+      });
+
       if (nextQuestionIndex >= templateQuestions.length) {
-        // All questions in current round are done - advance to next round
-        console.log('[HostQuizPanel] All questions in round complete, advancing to next round...');
-        
+        // All questions in current category are done - try to advance to next category
+        console.log('[HostQuizPanel] All questions in category complete, advancing to next category...');
+
         try {
-          await advanceToNextRound(session.id);
-          
-          // Reload questions for the new round
+          const result = await advanceToNextRound(session.id);
+          console.log('[HostQuizPanel] Advance result:', result);
+
+          if (result.isComplete) {
+            toast.showToast({ message: '🎉 Quiz Complete! All categories finished.', type: 'success', duration: 5000 });
+            return;
+          }
+
+          // Reload questions for the new category
           const roundInfo = await getRoundQuestions(session.id);
-          console.log('[HostQuizPanel] Advanced to next round:', roundInfo);
-          
+          console.log('[HostQuizPanel] New category loaded:', roundInfo);
+
           setTemplateQuestions(roundInfo.questions);
           setCurrentCategoryIndex(roundInfo.session.currentCategoryIndex);
-          setCurrentQuestionIndex(0); // Start at first question of new round
-          
-          // Start first question of new round
-          const firstQuestion = roundInfo.questions[0];
+          setCurrentQuestionIndex(roundInfo.session.currentQuestionIndex);
+
+          // Start first question of new category
+          const firstQuestion = roundInfo.questions[roundInfo.session.currentQuestionIndex];
           if (firstQuestion) {
             dispatch(
               startQuizThunk({
@@ -429,28 +454,39 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             );
           }
         } catch (error: any) {
-          console.error('[HostQuizPanel] Failed to advance round:', error);
-          if (error.message?.includes('last round')) {
-            toast.showToast({ message: '🎉 Quiz Complete! All rounds finished.', type: 'success', duration: 5000 });
-          } else {
-            toast.showToast({ message: 'Failed to advance to next round. Check console for details.', type: 'error', duration: 5000 });
-          }
+          console.error('[HostQuizPanel] Failed to advance category:', error);
+          toast.showToast({
+            message: error.message || 'Failed to advance to next category. Check console for details.',
+            type: 'error',
+            duration: 5000
+          });
         }
       } else {
-        // More questions in current round
-        setCurrentQuestionIndex(nextQuestionIndex);
-        
-        const nextQuestion = templateQuestions[nextQuestionIndex];
-        if (nextQuestion) {
-          dispatch(
-            startQuizThunk({
-              sessionId: session.id,
-              questionId: nextQuestion.id,
-              prompt: nextQuestion.question,
-              options: Array.isArray(nextQuestion.options) ? nextQuestion.options : [],
-              duration: nextQuestion.timeLimit || 30,
-            })
-          );
+        // More questions in current category - use updateRound to navigate properly
+        console.log('[HostQuizPanel] Moving to next question in same category...');
+
+        try {
+          // Update backend round state
+          await updateRound(session.id, currentCategoryIndex, nextQuestionIndex);
+
+          // Update local state
+          setCurrentQuestionIndex(nextQuestionIndex);
+
+          const nextQuestion = templateQuestions[nextQuestionIndex];
+          if (nextQuestion) {
+            dispatch(
+              startQuizThunk({
+                sessionId: session.id,
+                questionId: nextQuestion.id,
+                prompt: nextQuestion.question,
+                options: Array.isArray(nextQuestion.options) ? nextQuestion.options : [],
+                duration: nextQuestion.timeLimit || 30,
+              })
+            );
+          }
+        } catch (error) {
+          console.error('[HostQuizPanel] Failed to update round:', error);
+          toast.showToast({ message: 'Failed to navigate to next question.', type: 'error', duration: 5000 });
         }
       }
     } else {

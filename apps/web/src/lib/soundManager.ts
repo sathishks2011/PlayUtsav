@@ -369,26 +369,34 @@ export class SoundManager {
    * Get enabled state for a sound type from settings
    */
   private getSoundEnabledState(type: SoundType): boolean {
-    if (!this.settings) return false;
-    
-    switch (type) {
-      case 'coin':
-        return this.settings.coinSoundEnabled;
-      case 'coin_wrong':
-        return this.settings.coinWrongSoundEnabled;
-      case 'buzzer':
-        return this.settings.buzzerSoundEnabled;
-      case 'background':
-        return this.settings.backgroundMusicEnabled;
-      case 'notification':
-        return this.settings.notificationsEnabled;
-      case 'timer':
-        return this.settings.timerSoundEnabled;
-      case 'image-appear':
-        return this.settings.notificationsEnabled; // Use notification toggle for image-appear
-      default:
-        return false;
+    if (!this.settings) {
+      console.warn(`[SoundManager] getSoundEnabledState called for "${type}" but settings not initialized`);
+      return false;
     }
+
+    const enabledState = (() => {
+      switch (type) {
+        case 'coin':
+          return this.settings.coinSoundEnabled;
+        case 'coin_wrong':
+          return this.settings.coinWrongSoundEnabled;
+        case 'buzzer':
+          return this.settings.buzzerSoundEnabled;
+        case 'background':
+          return this.settings.backgroundMusicEnabled;
+        case 'notification':
+          return this.settings.notificationsEnabled;
+        case 'timer':
+          return this.settings.timerSoundEnabled;
+        case 'image-appear':
+          return this.settings.notificationsEnabled; // Use notification toggle for image-appear
+        default:
+          return false;
+      }
+    })();
+
+    console.log(`[SoundManager] Sound "${type}" enabled state:`, enabledState);
+    return enabledState;
   }
 
   /**

@@ -16,7 +16,10 @@ export function useBioscopeSounds(options: BioscopeSoundOptions = { enabled: tru
 
   // Play image reveal sound
   const playImageRevealSound = useCallback(() => {
-    if (!enabled || !settings.sounds.soundsEnabled) return;
+    if (!enabled || !settings.sounds.soundsEnabled) {
+      console.log('[BioscopeSounds] Image sound blocked - enabled:', enabled, 'soundsEnabled:', settings.sounds.soundsEnabled);
+      return;
+    }
 
     console.log('[BioscopeSounds] Playing image appear sound');
     soundManager.playSound('image-appear', settings.sounds.masterVolume / 100);
@@ -40,10 +43,13 @@ export function useBioscopeSounds(options: BioscopeSoundOptions = { enabled: tru
 
   // Play answer reveal sound (when host reveals the answer)
   const playAnswerRevealSound = useCallback(() => {
-    if (!enabled || !settings.sounds.soundsEnabled) return;
+    if (!enabled || !settings.sounds.soundsEnabled) {
+      console.log('[BioscopeSounds] Answer reveal sound blocked - enabled:', enabled, 'soundsEnabled:', settings.sounds.soundsEnabled);
+      return;
+    }
 
-    console.log('[BioscopeSounds] Playing answer reveal sound');
-    soundManager.playSound('buzzer', settings.sounds.masterVolume / 100);
+    console.log('[BioscopeSounds] Playing answer reveal sound (buzzer)');
+    soundManager.playSound('notification', settings.sounds.masterVolume / 100);
   }, [enabled, settings.sounds.soundsEnabled, settings.sounds.masterVolume]);
 
   // (removed duplicate stopTimerTick declaration)
@@ -61,12 +67,13 @@ export function useBioscopeSounds(options: BioscopeSoundOptions = { enabled: tru
 
   // Start timer tick sound for last N seconds
   const startTimerTick = useCallback((timeRemaining: number) => {
-    if (!enabled || !settings.sounds.soundsEnabled || !settings.sounds.notificationSoundsEnabled) {
+    if (!enabled || !settings.sounds.soundsEnabled || !settings.sounds.timerSoundEnabled) {
+      console.log('[BioscopeSounds] Timer sound blocked - enabled:', enabled, 'soundsEnabled:', settings.sounds.soundsEnabled, 'timerEnabled:', settings.sounds.timerSoundEnabled);
       return;
     }
 
     // Only start timer sound at the warning threshold (e.g., 10s)
-    if (timeRemaining === timerWarningThreshold) {
+    if (timeRemaining === timerWarningThreshold && lastTimerTickRef.current === null) {
       soundManager.playSound('timer', (settings.sounds.masterVolume / 100) * 0.5);
       lastTimerTickRef.current = timeRemaining;
       console.log(`[BioscopeSounds] Timer sound started at ${timeRemaining}s`);
@@ -76,10 +83,10 @@ export function useBioscopeSounds(options: BioscopeSoundOptions = { enabled: tru
     if (timeRemaining < 1 && lastTimerTickRef.current !== null) {
       stopTimerTick();
       lastTimerTickRef.current = null;
-  soundManager.playSound('coin_wrong', (settings.sounds.masterVolume / 100));
-  console.log('[BioscopeSounds] Timer sound stopped, wrong answer sound played');
+      soundManager.playSound('buzzer', (settings.sounds.masterVolume / 100));
+      console.log('[BioscopeSounds] Timer expired - buzzer sound played');
     }
-  }, [enabled, settings.sounds.soundsEnabled, settings.sounds.notificationSoundsEnabled, settings.sounds.masterVolume, timerWarningThreshold, stopTimerTick]);
+  }, [enabled, settings.sounds.soundsEnabled, settings.sounds.timerSoundEnabled, settings.sounds.masterVolume, timerWarningThreshold, stopTimerTick]);
 
   // Cleanup on unmount
   useEffect(() => {

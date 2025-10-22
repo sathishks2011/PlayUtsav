@@ -9,12 +9,71 @@ import { ThemeStudioPanel } from './ThemeStudioPanel';
 import { HostSettingsPanel } from './HostSettingsPanel';
 import { HostMetricsPanel } from './HostMetricsPanel';
 import TemplateManager from './TemplateManager';
+import { QuizTemplateManager } from './templates/QuizTemplateManager';
+import { BioscopeTemplateManager } from './templates/BioscopeTemplateManager';
 import { useBuzzerSync } from '../hooks/useBuzzerSync';
 
-type NavKey = 'dashboard' | 'lobby' | 'control' | 'bioscope' | 'settings' | 'metrics' | 'theme' | 'templates';
+type NavKey = 'dashboard' | 'lobby' | 'control' | 'bioscope' | 'settings' | 'metrics' | 'theme' | 'templates' | 'quiz-templates' | 'bioscope-templates';
+
+type MenuItem = {
+  id: NavKey | string;
+  label: string;
+  requiresSession?: boolean;
+  requiresAuth?: boolean;
+  children?: MenuItem[];
+};
+
+type MenuSection = {
+  id: string;
+  label: string;
+  icon?: string;
+  children: MenuItem[];
+};
+
+// JSON-like menu structure - can be externalized to a config file later
+const MENU_SECTIONS: MenuSection[] = [
+  {
+    id: 'session',
+    label: 'Session',
+    icon: '🎮',
+    children: [
+      { id: 'dashboard', label: 'Dashboard' },
+      { id: 'lobby', label: 'Lobby', requiresSession: true },
+    ],
+  },
+  {
+    id: 'games',
+    label: 'Games',
+    icon: '🎯',
+    children: [
+      { id: 'control', label: 'Game Control', requiresSession: true },
+      { id: 'bioscope', label: 'Bioscope', requiresAuth: true },
+      {
+        id: 'templates',
+        label: 'Templates',
+        children: [
+          { id: 'quiz-templates', label: 'Quiz Templates' },
+          { id: 'bioscope-templates', label: 'Bioscope Templates' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'configuration',
+    label: 'Configuration',
+    icon: '⚙️',
+    children: [
+      { id: 'settings', label: 'Settings' },
+      { id: 'theme', label: 'Theme Studio' },
+      { id: 'metrics', label: 'Metrics' },
+    ],
+  },
+];
 
 export function HostPortal() {
   const [nav, setNav] = useState<NavKey>('dashboard');
+  const [expandedSections, setExpandedSections] = useState<string[]>(['session', 'games', 'configuration']);
+  const [expandedItems, setExpandedItems] = useState<string[]>(['templates']); // Track child-level expansions
   const session = useAppSelector((s) => s.session.current);
   const user = useAppSelector((s) => s.auth.user);
 
@@ -31,48 +90,133 @@ export function HostPortal() {
     }
   }, [session, nav]);
 
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections((prev) =>
+      prev.includes(sectionId)
+        ? prev.filter((id) => id !== sectionId)
+        : [...prev, sectionId]
+    );
+  };
+
+  const toggleItem = (itemId: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const isItemDisabled = (item: MenuItem) => {
+    if (item.requiresSession && !session) return true;
+    if (item.requiresAuth && item.id === 'bioscope' && !canAccessBioscope) return true;
+    return false;
+  };
+
+  const handleItemClick = (item: MenuItem) => {
+    // If item has children, toggle expansion instead of navigating
+    if (item.children && item.children.length > 0) {
+      toggleItem(item.id);
+    } else {
+      // Navigate to the view
+      setNav(item.id as NavKey);
+    }
+  };
+
   return (
     <div className="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
       <aside className="md:sticky md:top-6 h-max rounded-lg border border-[var(--fg)]/20 bg-[var(--card)] p-3 shadow-sm">
         <div className="text-sm uppercase tracking-widest opacity-60 mb-3">
           <FormattedMessage id="host.nav.title" defaultMessage="Host Console" />
         </div>
-        <nav className="flex flex-row md:flex-col gap-2">
-          <button title="Dashboard" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='dashboard'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('dashboard')}>
-            <FormattedMessage id="host.nav.dashboard" defaultMessage="Dashboard" />
-          </button>
-          <button title="Lobby" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='lobby'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'} ${!session ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`} onClick={() => setNav('lobby')} disabled={!session}>
-            <FormattedMessage id="host.nav.lobby" defaultMessage="Lobby" />
-          </button>
-          <button title="Game Control" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='control'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'} ${!session ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`} onClick={() => setNav('control')} disabled={!session}>
-            <FormattedMessage id="host.nav.control" defaultMessage="Game Control" />
-          </button>
-          <button
-            title="Bioscope"
-            className={`px-3 py-2 rounded text-left border whitespace-nowrap ${
-              nav === 'bioscope'
-                ? 'bg-[var(--fg)]/10 border-[var(--fg)]/20'
-                : 'border-transparent hover:bg-[var(--fg)]/5'
-            } ${
-              canAccessBioscope ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'
-            }`}
-            onClick={() => canAccessBioscope && setNav('bioscope')}
-            disabled={!canAccessBioscope}
-          >
-            <FormattedMessage id="host.nav.bioscope" defaultMessage="Bioscope" />
-          </button>
-          <button title="Settings" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='settings'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('settings')}>
-            <FormattedMessage id="host.nav.settings" defaultMessage="Settings" />
-          </button>
-          <button title="Metrics" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='metrics'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('metrics')}>
-            <FormattedMessage id="host.nav.metrics" defaultMessage="Metrics" />
-          </button>
-          <button title="Theme Studio" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='theme'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('theme')}>
-            <FormattedMessage id="host.nav.theme" defaultMessage="Theme Studio" />
-          </button>
-          <button title="Quiz Templates" className={`px-3 py-2 rounded text-left border whitespace-nowrap ${nav==='templates'?'bg-[var(--fg)]/10 border-[var(--fg)]/20':'border-transparent hover:bg-[var(--fg)]/5'}`} onClick={() => setNav('templates')}>
-            <FormattedMessage id="host.nav.templates" defaultMessage="Templates" />
-          </button>
+        <nav className="flex flex-col gap-1">
+          {MENU_SECTIONS.map((section) => {
+            const isExpanded = expandedSections.includes(section.id);
+            return (
+              <div key={section.id} className="space-y-1">
+                {/* Parent Section Header */}
+                <button
+                  onClick={() => toggleSection(section.id)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded text-left text-sm font-medium border border-transparent hover:bg-[var(--fg)]/5 transition"
+                >
+                  <span className="flex items-center gap-2">
+                    {section.icon && <span className="text-base">{section.icon}</span>}
+                    {section.label}
+                  </span>
+                  <span className="text-xs opacity-60">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
+                </button>
+
+                {/* Child Items */}
+                {isExpanded && (
+                  <div className="ml-4 pl-2 border-l-2 border-[var(--fg)]/10 space-y-1">
+                    {section.children.map((item) => {
+                      const isActive = nav === item.id;
+                      const disabled = isItemDisabled(item);
+                      const hasChildren = item.children && item.children.length > 0;
+                      const isItemExpanded = expandedItems.includes(item.id);
+
+                      return (
+                        <div key={item.id} className="space-y-1">
+                          {/* Child Item */}
+                          <button
+                            title={item.label}
+                            className={`w-full px-3 py-1.5 rounded text-left text-sm border transition flex items-center justify-between ${
+                              isActive && !hasChildren
+                                ? 'bg-[var(--fg)]/10 border-[var(--fg)]/20 font-medium'
+                                : 'border-transparent hover:bg-[var(--fg)]/5'
+                            } ${
+                              disabled
+                                ? 'opacity-40 cursor-not-allowed'
+                                : 'cursor-pointer'
+                            }`}
+                            onClick={() => !disabled && handleItemClick(item)}
+                            disabled={disabled}
+                          >
+                            <span>{item.label}</span>
+                            {hasChildren && (
+                              <span className="text-xs opacity-60">
+                                {isItemExpanded ? '▼' : '▶'}
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Sub-Child Items (3rd level) */}
+                          {hasChildren && isItemExpanded && (
+                            <div className="ml-4 pl-2 border-l-2 border-[var(--fg)]/10 space-y-1">
+                              {item.children!.map((subItem) => {
+                                const isSubActive = nav === subItem.id;
+                                const subDisabled = isItemDisabled(subItem);
+                                return (
+                                  <button
+                                    key={subItem.id}
+                                    title={subItem.label}
+                                    className={`w-full px-3 py-1.5 rounded text-left text-xs border transition ${
+                                      isSubActive
+                                        ? 'bg-[var(--fg)]/10 border-[var(--fg)]/20 font-medium'
+                                        : 'border-transparent hover:bg-[var(--fg)]/5'
+                                    } ${
+                                      subDisabled
+                                        ? 'opacity-40 cursor-not-allowed'
+                                        : 'cursor-pointer'
+                                    }`}
+                                    onClick={() => !subDisabled && setNav(subItem.id as NavKey)}
+                                    disabled={subDisabled}
+                                  >
+                                    {subItem.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
       </aside>
       <section className="space-y-4">
@@ -103,6 +247,8 @@ export function HostPortal() {
         {nav === 'metrics' && <HostMetricsPanel />}
         {nav === 'theme' && <ThemeStudioPanel />}
         {nav === 'templates' && <TemplateManager />}
+        {nav === 'quiz-templates' && <QuizTemplateManager />}
+        {nav === 'bioscope-templates' && <BioscopeTemplateManager />}
       </section>
     </div>
   );

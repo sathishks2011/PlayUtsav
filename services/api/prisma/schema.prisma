@@ -40,6 +40,7 @@ model UserSession {
   userAgent   String?
   ipAddress   String?
   expiresAt   DateTime
+  status          String   @default("active") // active, deleted
   createdAt   DateTime @default(now())
 }
 
@@ -306,8 +307,7 @@ model BioscopeSession {
   revealedImages  String            @default("[]") // JSON array of revealed image IDs
   timerStartedAt  DateTime?
   timerDuration   Int               @default(30) // seconds
-  playerEngagementType String?
-  buzzerState     String?           // JSON for buzzer state: { isOpen, lockedForParticipantId, pressedBy, pressedAt }
+  // playerEngagementType and buzzerState removed by reverting last bioscope migration
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   

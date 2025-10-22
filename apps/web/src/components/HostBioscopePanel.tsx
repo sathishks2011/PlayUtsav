@@ -75,6 +75,29 @@ export function HostBioscopePanel() {
     timerWarningThreshold: 10,
   });
 
+  // Unlock audio on first user interaction
+  useEffect(() => {
+    const unlockAudio = () => {
+      console.log('[HostBioscopePanel] Attempting to unlock audio on user interaction');
+      // Try playing a silent sound to unlock audio context
+      const audio = new Audio();
+      audio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      audio.volume = 0;
+      audio.play().catch(() => {
+        console.log('[HostBioscopePanel] Audio unlock attempt (silent sound)');
+      });
+    };
+
+    // Listen for first click anywhere in the document
+    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('keydown', unlockAudio, { once: true });
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
   // Sync buzzer state via WebSocket
   // Temporarily disabled to fix blank screen issue
   // useBioscopeBuzzerSync(sessionId || '');

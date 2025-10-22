@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   fetchBioscopeTemplates,
+  deleteBioscopeTemplate,
   selectTemplate,
   clearError,
   type BioscopeTemplate,
 } from '../../store/slices/bioscopeSlice';
+import { useToast } from '../ToastProvider';
 import BioscopeTemplateUpload from '../bioscope/BioscopeTemplateUpload';
 import BioscopeRoundGrid from '../bioscope/BioscopeRoundGrid';
 
@@ -69,6 +71,7 @@ function TemplatePreview({ template }: { template: BioscopeTemplate }) {
 
 export function BioscopeTemplateManager() {
   const dispatch = useAppDispatch();
+  const toast = useToast();
   const session = useAppSelector((s) => s.session.current);
   const authUser = useAppSelector((s) => s.auth.user);
   const { templates, selectedTemplate, loading, error } = useAppSelector((s) => s.bioscope);
@@ -87,12 +90,57 @@ export function BioscopeTemplateManager() {
   };
 
   const handleViewTemplate = (template: BioscopeTemplate) => {
-    dispatch(selectTemplate(template));
-    setShowGrid(true);
+    try {
+      console.log('[BioscopeTemplateManager] Viewing template:', template);
+      dispatch(selectTemplate(template));
+      setShowGrid(true);
+    } catch (error) {
+      console.error('[BioscopeTemplateManager] Error viewing template:', error);
+      toast.showToast({
+        message: `Failed to view template: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error',
+        duration: 5000
+      });
+    }
   };
 
   const handleCloseGrid = () => {
     setShowGrid(false);
+  };
+
+  const handleDeleteTemplate = async (templateId: string, templateName: string) => {
+    // Confirm with the user before deleting
+    const confirmed = window.confirm(
+      `Delete template "${templateName}"? This action cannot be undone.\n\nIf the template is attached to an active game it cannot be deleted.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await dispatch(deleteBioscopeTemplate({ templateId, hostId })).unwrap();
+      toast.showToast({
+        message: `Template "${templateName}" deleted successfully`,
+        type: 'success',
+        duration: 3000,
+      });
+      // Refresh templates list
+      dispatch(fetchBioscopeTemplates({ hostId, includePublic: true }));
+    } catch (error: any) {
+      // Handle HTTP 409 (Conflict) specifically
+      let errorMessage = 'Failed to delete template';
+      if (error?.status === 409) {
+        errorMessage = 'Template is currently in use by an active game. Please stop the game before deleting.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast.showToast({
+        message: errorMessage,
+        type: 'error',
+        duration: 6000,
+      });
+    }
   };
 
   const handleDownloadSample = () => {
@@ -175,6 +223,7 @@ export function BioscopeTemplateManager() {
   }
 
   if (showGrid && selectedTemplate) {
+    console.log('[BioscopeTemplateManager] Showing grid for template:', selectedTemplate.name);
     return <BioscopeRoundGrid template={selectedTemplate} onClose={handleCloseGrid} />;
   }
 
@@ -261,7 +310,7 @@ export function BioscopeTemplateManager() {
       )}
 
       {!loading && templates.length > 0 && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {templates.map((template) => {
             const isSelected = selectedTemplate?.id === template.id;
             const totalImages = template.rounds.reduce((sum, round) => sum + (round.images?.length ?? 0), 0);
@@ -269,57 +318,98 @@ export function BioscopeTemplateManager() {
             return (
               <article
                 key={template.id}
-                className={`rounded-lg border px-5 py-4 shadow-sm transition ${
+                className={`group relative overflow-hidden rounded-xl border shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
                   isSelected
-                    ? 'border-purple-400/70 bg-purple-500/10'
-                    : 'border-[var(--fg)]/15 bg-[var(--card)]/70'
+                    ? 'border-purple-400/70 bg-gradient-to-br from-purple-500/20 to-pink-500/10'
+                    : 'border-[var(--fg)]/15 bg-gradient-to-br from-[var(--card)]/90 to-[var(--card)]/70 hover:border-purple-400/40'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold text-[var(--fg)]">{template.name}</h3>
+                {/* Decorative gradient overlay */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                {/* Selected indicator badge */}
+                {isSelected && (
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-500/30 to-pink-500/30 border border-purple-400/50 backdrop-blur-sm">
+                    <span className="text-xs font-bold text-purple-100">✓ SELECTED</span>
+                  </div>
+                )}
+
+                <div className="relative p-6 space-y-4">
+                  {/* Header without icon */}
+                  <header className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xl font-bold text-[var(--fg)] flex-1">{template.name}</h3>
+                      {template.isPublic && (
+                        <span className="flex-shrink-0 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-2 py-0.5 text-xs uppercase tracking-wide text-emerald-100">
+                          Public
+                        </span>
+                      )}
+                    </div>
                     {template.description && (
-                      <p className="text-sm text-[var(--fg)]/65 line-clamp-2">{template.description}</p>
+                      <p className="text-sm text-[var(--fg)]/60 line-clamp-2">{template.description}</p>
                     )}
-                  </div>
-                  {template.isPublic && (
-                    <span className="rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-wide text-emerald-100">
-                      Public
-                    </span>
-                  )}
+                  </header>
+
+                  {/* Stats Grid with enhanced styling */}
+                  <dl className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-[var(--fg)]/5 border border-[var(--fg)]/10 px-2.5 py-2">
+                      <dt className="flex items-center gap-1 text-xs uppercase tracking-wider text-[var(--fg)]/50 font-medium">
+                        <span className="text-sm">🎯</span>
+                        Rounds
+                      </dt>
+                      <dd className="mt-1 text-lg font-bold text-[var(--fg)]">{template.rounds.length}</dd>
+                    </div>
+                    <div className="rounded-lg bg-[var(--fg)]/5 border border-[var(--fg)]/10 px-2.5 py-2">
+                      <dt className="flex items-center gap-1 text-xs uppercase tracking-wider text-[var(--fg)]/50 font-medium">
+                        <span className="text-sm">🖼️</span>
+                        Images
+                      </dt>
+                      <dd className="mt-1 text-lg font-bold text-[var(--fg)]">{totalImages}</dd>
+                    </div>
+                    <div className="rounded-lg bg-[var(--fg)]/5 border border-[var(--fg)]/10 px-2.5 py-2">
+                      <dt className="flex items-center gap-1 text-xs uppercase tracking-wider text-[var(--fg)]/50 font-medium">
+                        <span className="text-sm">⏱️</span>
+                        Timer
+                      </dt>
+                      <dd className="mt-1 text-lg font-bold text-[var(--fg)]">{template.configuration?.timer_seconds ?? 30}s</dd>
+                    </div>
+                  </dl>
+
+                  {/* Action buttons with enhanced styling */}
+                  <footer className="flex items-center gap-2 pt-2 border-t border-[var(--fg)]/10">
+                    <button
+                      type="button"
+                      onClick={() => handleViewTemplate(template)}
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 text-sm font-medium text-purple-100 transition-all duration-200 hover:from-purple-500/30 hover:to-pink-500/30 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20"
+                      title="View rounds and images"
+                    >
+                      <span className="text-base">👁️</span>
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => dispatch(selectTemplate(template))}
+                      className={`flex-1 inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/50 text-green-100 hover:from-green-500/30 hover:to-emerald-500/30'
+                          : 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 text-blue-100 hover:from-blue-500/30 hover:to-cyan-500/30 hover:border-blue-400/50 hover:shadow-lg hover:shadow-blue-500/20'
+                      }`}
+                      title={isSelected ? 'Currently selected' : 'Select this template'}
+                    >
+                      <span className="text-base">{isSelected ? '✓' : '☑️'}</span>
+                      {isSelected ? 'Selected' : 'Select'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplate(template.id, template.name)}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-red-500/10 border border-red-400/30 text-sm font-medium text-red-200 transition-all duration-200 hover:bg-red-500/20 hover:border-red-400/50 hover:text-red-100 hover:shadow-lg hover:shadow-red-500/20"
+                      title="Delete this template"
+                    >
+                      <span className="text-base">🗑️</span>
+                      Delete
+                    </button>
+                  </footer>
                 </div>
-
-                <dl className="mt-4 grid grid-cols-3 gap-3 text-xs text-[var(--fg)]/60">
-                  <div>
-                    <dt className="uppercase tracking-wider">Rounds</dt>
-                    <dd className="mt-1 text-sm text-[var(--fg)]">{template.rounds.length}</dd>
-                  </div>
-                  <div>
-                    <dt className="uppercase tracking-wider">Images</dt>
-                    <dd className="mt-1 text-sm text-[var(--fg)]">{totalImages}</dd>
-                  </div>
-                  <div>
-                    <dt className="uppercase tracking-wider">Timer</dt>
-                    <dd className="mt-1 text-sm text-[var(--fg)]">{template.configuration?.timer_seconds ?? 30}s</dd>
-                  </div>
-                </dl>
-
-                <footer className="mt-5 flex items-center justify-between text-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleViewTemplate(template)}
-                    className="text-purple-200 transition hover:text-purple-100"
-                  >
-                    View rounds
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => dispatch(selectTemplate(template))}
-                    className="text-blue-200 transition hover:text-blue-100"
-                  >
-                    {isSelected ? 'Selected ✓' : 'Select'}
-                  </button>
-                </footer>
               </article>
             );
           })}

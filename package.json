@@ -18,6 +18,7 @@
     "@capacitor/android": "^7.4.3",
     "@capacitor/cli": "^7.4.3",
     "@capacitor/core": "^7.4.3",
-    "@noriginmedia/norigin-spatial-navigation": "^2.3.0"
+    "@noriginmedia/norigin-spatial-navigation": "^2.3.0",
+    "better-sqlite3": "8.0.1"
   }
 }

@@ -204,8 +204,9 @@ const sessionSlice = createSlice({
       })
       .addCase(addTeamThunk.fulfilled, (state, action) => {
         console.log('[Redux] Team added successfully:', action.payload);
-        if (!state.current) return;
-        state.current.teams = [...state.current.teams, { ...action.payload, participants: [] }];
+        // Don't manually update teams array here - let WebSocket snapshot handle it
+        // This prevents duplication when both the API response and WebSocket update arrive
+        // The team will appear when the next session snapshot arrives via WebSocket
       })
       .addCase(addTeamThunk.rejected, (state, action) => {
         console.error('[Redux] Failed to add team:', action.error);

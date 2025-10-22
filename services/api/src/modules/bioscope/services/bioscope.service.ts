@@ -19,88 +19,7 @@ export class BioscopeService {
     private bioscopeGateway: BioscopeGateway,
   ) {}
 
-  // ==================== Buzzer Management ====================
-
-  async openBuzzer(sessionId: string) {
-    const bioscopeSession = await this.getBioscopeSession(sessionId);
-    const updatedState = { isOpen: true };
-
-    await this.prisma.bioscopeSession.update({
-      where: { id: bioscopeSession.id },
-      data: { buzzerState: JSON.stringify(updatedState) },
-    });
-
-    this.sessionGateway.emitBioscopeBuzzerOpened(sessionId, updatedState);
-    return { success: true, state: updatedState };
-  }
-
-  async closeBuzzer(sessionId: string) {
-    const bioscopeSession = await this.getBioscopeSession(sessionId);
-    const currentState = bioscopeSession.buzzerState ? JSON.parse(bioscopeSession.buzzerState) : {};
-    const updatedState = { ...currentState, isOpen: false };
-
-    await this.prisma.bioscopeSession.update({
-      where: { id: bioscopeSession.id },
-      data: { buzzerState: JSON.stringify(updatedState) },
-    });
-
-    this.sessionGateway.emitBioscopeBuzzerClosed(sessionId, updatedState);
-    return { success: true, state: updatedState };
-  }
-
-  async resetBuzzer(sessionId: string) {
-    const bioscopeSession = await this.getBioscopeSession(sessionId);
-    const updatedState = { isOpen: false, lockedForParticipantId: null, pressedBy: null, pressedAt: null };
-
-    await this.prisma.bioscopeSession.update({
-      where: { id: bioscopeSession.id },
-      data: { buzzerState: JSON.stringify(updatedState) },
-    });
-
-    this.sessionGateway.emitBioscopeBuzzerReset(sessionId, updatedState);
-    return { success: true, state: updatedState };
-  }
-
-  async pressBuzzer(sessionId: string, participantId: string) {
-    const bioscopeSession = await this.getBioscopeSession(sessionId);
-    const buzzerState = bioscopeSession.buzzerState ? JSON.parse(bioscopeSession.buzzerState) : {};
-
-    if (!buzzerState.isOpen || buzzerState.lockedForParticipantId) {
-      throw new ConflictException('Buzzer is not open or has already been pressed.');
-    }
-
-    const participant = await this.prisma.participant.findUnique({
-      where: { id: participantId },
-      include: { team: true },
-    });
-
-    if (!participant) {
-      throw new NotFoundException('Participant not found');
-    }
-
-    const pressInfo = {
-      participantId: participant.id,
-      displayName: participant.displayName,
-      teamId: participant.teamId,
-      teamName: participant.team?.name,
-      pressedAt: new Date().toISOString(),
-    };
-
-    const updatedState = {
-      ...buzzerState,
-      isOpen: false,
-      lockedForParticipantId: participantId,
-      pressedBy: pressInfo,
-    };
-
-    await this.prisma.bioscopeSession.update({
-      where: { id: bioscopeSession.id },
-      data: { buzzerState: JSON.stringify(updatedState) },
-    });
-
-    this.sessionGateway.emitBioscopeBuzzerPressed(sessionId, pressInfo, updatedState);
-    return { success: true, state: updatedState };
-  }
+  // Buzzer management removed (reverted schema migration that added buzzerState)
 
   // ==================== Template Management ====================
 
@@ -189,20 +108,15 @@ export class BioscopeService {
       throw new BadRequestException('You can only delete your own templates');
     }
 
-    // Check if template is in use
-    const inUse = await this.prisma.bioscopeSession.findFirst({
-      where: { templateId: id },
-    });
-
-    if (inUse) {
-      throw new ConflictException('Cannot delete template that is currently in use');
+    // Prevent deletion if any bioscope session references this template
+    const anySession = await this.prisma.bioscopeSession.findFirst({ where: { templateId: id } });
+    if (anySession) {
+      throw new ConflictException('Cannot delete template while sessions reference it');
     }
 
-    await this.prisma.bioscopeTemplate.delete({
-      where: { id },
-    });
+    await this.prisma.bioscopeTemplate.delete({ where: { id } });
 
-    return { success: true, message: 'Template deleted successfully' };
+    return { success: true, message: 'Template deleted' };
   }
 
   // ==================== Game Management ====================
@@ -297,8 +211,6 @@ export class BioscopeService {
         status: 'idle',
         revealedImages: '[]',
         timerStartedAt: null,
-        buzzerState: null,
-        playerEngagementType: null,
       },
     });
 
@@ -605,7 +517,6 @@ export class BioscopeService {
   async getGameState(sessionId: string): Promise<BioscopeStateDto> {
     const bioscopeSession = await this.getBioscopeSession(sessionId);
     const template = await this.getTemplateById(bioscopeSession.templateId);
-
     const currentRound = template.rounds[bioscopeSession.currentRoundId] || null;
     const revealedImages: number[] = JSON.parse(bioscopeSession.revealedImages);
 
@@ -668,10 +579,34 @@ export class BioscopeService {
   }
 
   private formatTemplate(template: any) {
+    // Defensive parsing: templates in the DB may have malformed JSON (dev data).
+    // Avoid throwing on parse errors and return sensible defaults so the
+    // templates endpoint doesn't return 500 for the whole list.
+    let configuration: any = {};
+    let rounds: any[] = [];
+
+    try {
+      configuration = template.configuration ? JSON.parse(template.configuration) : {};
+    } catch (err) {
+      // Log a warning server-side and fall back to an empty configuration
+      // so clients can still load the template listing.
+      // eslint-disable-next-line no-console
+      console.warn('[BioscopeService] Failed to parse template.configuration for template', template.id, (err as any)?.message || err);
+      configuration = {};
+    }
+
+    try {
+      rounds = template.rounds ? JSON.parse(template.rounds) : [];
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[BioscopeService] Failed to parse template.rounds for template', template.id, (err as any)?.message || err);
+      rounds = [];
+    }
+
     return {
       ...template,
-      configuration: JSON.parse(template.configuration),
-      rounds: JSON.parse(template.rounds),
+      configuration,
+      rounds,
     };
   }
 

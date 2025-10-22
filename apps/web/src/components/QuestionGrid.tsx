@@ -52,6 +52,7 @@ const DebouncedInput: React.FC<{
 
 export default function QuestionGrid({ template, onClose }: QuestionGridProps) {
   const dispatch = useAppDispatch();
+  const toast = useToast();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
@@ -102,12 +103,16 @@ export default function QuestionGrid({ template, onClose }: QuestionGridProps) {
         })
       ).unwrap();
 
+      toast.showToast({ message: 'Question updated successfully!', type: 'success', duration: 3000 });
       setEditingQuestionId(null);
       setEditForm({});
     } catch (error) {
       console.error('Failed to update question:', error);
-      const toast = useToast();
-      toast.showToast({ message: 'Failed to update question. Please try again.', type: 'error', duration: 5000 });
+      toast.showToast({
+        message: `Failed to update question: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error',
+        duration: 5000
+      });
     } finally {
       setSaving(false);
     }

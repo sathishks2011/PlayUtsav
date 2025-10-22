@@ -13,6 +13,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.png'],
+      devOptions: {
+        enabled: false, // Disable service worker in dev to prevent caching issues
+      },
       manifest: {
         name: 'PlayUtsav',
         short_name: 'PlayUtsav',
@@ -28,6 +31,14 @@ export default defineConfig({
     })
   ],
   server: {
+    host: '0.0.0.0',
+    port: 5174,
+    strictPort: false,
+    cors: true,
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws',
+    },
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',
