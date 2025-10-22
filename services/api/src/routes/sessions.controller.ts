@@ -82,8 +82,9 @@ export class SessionsController {
   async create(@Body() body: unknown, @CurrentUser() user?: { userId: string; role: string }) {
     const parsed = CreateSessionDto.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-    // Use demo host ID for testing if no user is authenticated
-    const hostId = user?.userId || 'cmgo33o9g0001dfs0j2ox2q7j';
+  // If no user is authenticated, don't set hostId (avoid FK constraint to missing user)
+  // Previously we used a hard-coded demo host id which can fail when that user doesn't exist in the DB.
+  const hostId = user?.userId ?? undefined;
     const session = await this.sessions.create({ ...parsed.data, hostId });
     await this.gateway.emitSessionUpdate(session.id);
     return session;
