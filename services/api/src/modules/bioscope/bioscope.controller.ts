@@ -157,7 +157,28 @@ export class BioscopeController {
   async revealAnswer(
     @Param('sessionId') sessionId: string,
   ): Promise<BioscopeStateDto> {
-    return this.bioscopeService.revealAnswer(sessionId);
+    console.log('[BioscopeController] revealAnswer endpoint called for session:', sessionId);
+    const result = await this.bioscopeService.revealAnswer(sessionId);
+
+    console.log('[BioscopeController] Got', result.scoreUpdates.length, 'score updates from service');
+
+    // Emit score:animated events for each score change (like quiz module does)
+    for (const update of result.scoreUpdates) {
+      console.log(`[BioscopeController] Emitting score:animated - teamId: ${update.teamId}, points: ${update.points}, participant: ${update.participantName}`);
+      await this.sessionGateway.emitScoreAnimated(sessionId, {
+        teamId: update.teamId,
+        points: update.points,
+        isBonus: update.points > 100, // Consider >100 points as bonus (early guess)
+        reason: `${update.participantName} scored ${update.points} points`,
+      });
+    }
+
+    // Trigger a session update so the frontend can fetch the latest scores
+    console.log('[BioscopeController] Emitting session update');
+    await this.sessionGateway.emitSessionUpdate(sessionId);
+
+    console.log('[BioscopeController] revealAnswer completed');
+    return result.gameState;
   }
 
   /**

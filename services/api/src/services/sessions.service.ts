@@ -102,11 +102,24 @@ export class SessionsService {
     return this.prisma.session.update({ where: { id: sessionId }, data: { status } });
   }
 
-  async adjustScore(sessionId: string, teamId: string, delta: number, reason?: string) {
+  async adjustScore(
+    sessionId: string,
+    teamId: string,
+    delta: number,
+    reason?: string,
+    gameType?: string,
+    gameId?: string
+  ) {
+    // Find the latest score for this team in this game (or globally if no gameType)
+    const where = gameType
+      ? { sessionId, teamId, gameType }
+      : { sessionId, teamId };
+
     const latest = await this.prisma.score.findFirst({
-      where: { sessionId, teamId },
+      where,
       orderBy: { recordedAt: 'desc' },
     });
+
     const value = (latest?.value ?? 0) + delta;
     return this.prisma.score.create({
       data: {
@@ -115,6 +128,8 @@ export class SessionsService {
         delta,
         value,
         reason,
+        gameType,
+        gameId,
       },
     });
   }

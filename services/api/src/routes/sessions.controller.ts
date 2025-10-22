@@ -82,9 +82,25 @@ export class SessionsController {
   async create(@Body() body: unknown, @CurrentUser() user?: { userId: string; role: string }) {
     const parsed = CreateSessionDto.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
-  // If no user is authenticated, don't set hostId (avoid FK constraint to missing user)
-  // Previously we used a hard-coded demo host id which can fail when that user doesn't exist in the DB.
-  const hostId = user?.userId ?? undefined;
+
+    // Get hostId from authenticated user, or use demo host for development
+    let hostId = user?.userId;
+
+    if (!hostId) {
+      // For development/testing: Use demo host to ensure scoring works
+      // In production, auth guards should be enabled to require authentication
+      console.warn('[SessionsController] No authenticated user - using demo host for development');
+      const demoHost = await this.sessions['prisma'].user.findFirst({
+        where: { email: 'host@demo.com' },
+      });
+      if (demoHost) {
+        hostId = demoHost.id;
+        console.log('[SessionsController] Using demo host:', demoHost.id);
+      } else {
+        console.error('[SessionsController] WARNING: No demo host found! Scoring will not work for this session.');
+      }
+    }
+
     const session = await this.sessions.create({ ...parsed.data, hostId });
     await this.gateway.emitSessionUpdate(session.id);
     return session;
@@ -168,24 +184,63 @@ export class SessionsController {
       throw new BadRequestException('Session not found');
     }
 
-    // Aggregate scores by participant/team
-    const scores = session.scores || [];
+    // Determine which game is currently active by checking the most recent activity
+    let activeGameType: string | null = null;
+
+    // Check for active quiz round
+    const activeQuizRound = await (this.sessions as any).prisma.quizRound.findFirst({
+      where: {
+        sessionId,
+        status: { in: ['running', 'revealed'] }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Check if bioscope is active (not idle and not completed)
+    const bioscopeActive = session.bioscopeSession &&
+      session.bioscopeSession.status !== 'idle' &&
+      session.bioscopeSession.status !== 'completed';
+
+    // Determine active game by comparing timestamps of most recent activity
+    if (bioscopeActive && activeQuizRound) {
+      // Both games have activity - use the most recent one
+      const bioscopeTime = new Date(session.bioscopeSession!.updatedAt).getTime();
+      const quizTime = new Date(activeQuizRound.createdAt).getTime();
+      activeGameType = bioscopeTime > quizTime ? 'bioscope' : 'quiz';
+    } else if (bioscopeActive) {
+      activeGameType = 'bioscope';
+    } else if (activeQuizRound) {
+      activeGameType = 'quiz';
+    }
+
+    // Aggregate scores by participant/team, filtering by active game type
+    const allScores = session.scores || [];
+    const scores = activeGameType
+      ? allScores.filter(score => (score as any).gameType === activeGameType)
+      : allScores;
+
     const participants = session.participants || [];
-    
-    // Calculate total score for each participant
+
+    // Calculate total score for each team by getting the latest (most recent) score
+    // Score.value is cumulative, so we only need the most recent value per team
     const participantScores = new Map<string, number>();
     const teamScores = new Map<string, number>();
-    
-    scores.forEach(score => {
-      if (score.teamId) {
-        const current = teamScores.get(score.teamId) || 0;
-        teamScores.set(score.teamId, current + score.value);
+
+    // Sort scores by recordedAt descending to get most recent first
+    const sortedScores = [...scores].sort((a, b) =>
+      new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+    );
+
+    // Get the latest score for each team (since value is cumulative)
+    sortedScores.forEach(score => {
+      if (score.teamId && !teamScores.has(score.teamId)) {
+        teamScores.set(score.teamId, score.value);
       }
     });
-    
+
     // For individual players (not on teams), we need to check if scoring records exist per participant
     // For now, we'll use team-based scoring as that's what the scoring system tracks
-    
+
     const players = participants.map(p => {
       const teamScore = p.teamId ? (teamScores.get(p.teamId) || 0) : 0;
       return {
@@ -203,6 +258,7 @@ export class SessionsController {
       sessionId: session.id,
       players,
       teams: session.teams || [],
+      activeGameType, // Include this so clients know which game's scores are being shown
     };
   }
 

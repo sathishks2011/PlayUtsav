@@ -173,11 +173,12 @@ export class QuizService {
 
     // Ensure scoring is initialized before revealing
     // This is a safety check for sessions created before scoring was added
+    let scoringAvailable = true;
     try {
       await this.scoring['sessionScoringService'].getSessionEngine(sessionId);
     } catch (error: any) {
       if (error.message?.includes('Session scoring state not found')) {
-        console.warn('[QuizService] Scoring not initialized for session', sessionId, '- initializing now');
+        console.warn('[QuizService] Scoring not initialized for session', sessionId, '- attempting to initialize');
         // Get session to find hostId
         const session = await (this.prisma as any).session.findUnique({
           where: { id: sessionId },
@@ -189,8 +190,9 @@ export class QuizService {
           });
           console.log('[QuizService] Scoring initialized for session', sessionId);
         } else {
-          console.error('[QuizService] Cannot initialize scoring - no hostId found for session', sessionId);
-          throw new BadRequestException('Cannot calculate scores - session has no host');
+          // If there's no host we can't attach a host-specific scoring config. Continue without scoring.
+          console.warn('[QuizService] Scoring cannot be initialized - no hostId found for session', sessionId, '- proceeding without scoring');
+          scoringAvailable = false;
         }
       } else {
         throw error;
@@ -227,6 +229,11 @@ export class QuizService {
     const scoreUpdates: Array<{ participantId: string; teamId: string | null; delta: number; newTotal: number }> = [];
     
     if (payload.correctOption !== null) {
+      if (!scoringAvailable) {
+        console.warn('[QuizService] Reveal requested but scoring is unavailable for session', sessionId, '- skipping score calculations');
+        // Update completed above; return round with empty scoreUpdates
+        return { round: await this.fetchActiveRound(sessionId), scoreUpdates };
+      }
       // Get participant team mappings
       const participants = await (this.prisma as any).participant.findMany({
         where: { sessionId: round.sessionId },
@@ -275,6 +282,8 @@ export class QuizService {
               delta: scoringResult.result.totalPoints,
               reason: isCorrect ? `Correct answer to question ${round.questionId}` : `Incorrect answer to question ${round.questionId}`,
               recordedBy: answer.participantId,
+              gameType: 'quiz',
+              gameId: round.id, // Use the quiz round ID as gameId
             },
           });
           

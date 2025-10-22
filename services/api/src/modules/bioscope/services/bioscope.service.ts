@@ -270,6 +270,7 @@ export class BioscopeService {
   }
 
   async revealAnswer(sessionId: string) {
+    console.log('[BioscopeService] revealAnswer called for session:', sessionId);
     const bioscopeSession = await this.getBioscopeSession(sessionId);
     const template = await this.getTemplateById(bioscopeSession.templateId);
 
@@ -277,6 +278,8 @@ export class BioscopeService {
     if (!currentRound) {
       throw new BadRequestException('No active round');
     }
+
+    console.log('[BioscopeService] Current round:', bioscopeSession.currentRoundId, 'Correct answer:', currentRound.answer.title);
 
     // Update all answers with correct/incorrect status
     const answers = await this.prisma.bioscopeAnswer.findMany({
@@ -286,12 +289,39 @@ export class BioscopeService {
       },
     });
 
+    console.log('[BioscopeService] Found', answers.length, 'answers to process');
+
+    // Get participant information to find their team IDs
+    const participantIds = answers.map(a => a.participantId);
+    const participants = await this.prisma.participant.findMany({
+      where: {
+        id: { in: participantIds },
+        sessionId,
+      },
+      select: { id: true, teamId: true, displayName: true },
+    });
+    const participantMap = new Map(
+      participants.map(p => [p.id, { teamId: p.teamId, displayName: p.displayName }])
+    );
+
+    console.log('[BioscopeService] Participant map:', Array.from(participantMap.entries()).map(([id, info]) => ({ id, teamId: info.teamId, name: info.displayName })));
+
+    // Track score updates for animation
+    const scoreUpdates: Array<{
+      participantId: string;
+      teamId: string | null;
+      points: number;
+      participantName: string;
+    }> = [];
+
     for (const answer of answers) {
       if (!answer.isManualScore) {
         const isCorrect = this.checkAnswer(answer.answer, currentRound.answer);
         const points = isCorrect
           ? this.calculatePoints(answer.imageRevealedAt, currentRound, template.configuration)
           : 0;
+
+        console.log(`[BioscopeService] Processing answer from ${answer.participantName}: "${answer.answer}" - isCorrect: ${isCorrect}, points: ${points}`);
 
         await this.prisma.bioscopeAnswer.update({
           where: { id: answer.id },
@@ -300,8 +330,54 @@ export class BioscopeService {
             pointsAwarded: points,
           },
         });
+
+        // Award points to the participant's team
+        const participantInfo = participantMap.get(answer.participantId);
+
+        if (!participantInfo) {
+          console.warn(`[BioscopeService] WARNING: Participant ${answer.participantId} not found in participant map!`);
+          continue;
+        }
+
+        if (!participantInfo.teamId) {
+          console.warn(`[BioscopeService] WARNING: Participant ${participantInfo.displayName} (${answer.participantId}) has NO TEAM assigned! Score will not be recorded.`);
+          // Still track for animation purposes even without team
+          scoreUpdates.push({
+            participantId: answer.participantId,
+            teamId: null,
+            points,
+            participantName: participantInfo.displayName,
+          });
+          continue;
+        }
+
+        // Award points to team
+        if (points > 0) {
+          console.log(`[BioscopeService] Calling adjustScore for team ${participantInfo.teamId}: +${points} points`);
+          await this.sessionsService.adjustScore(
+            sessionId,
+            participantInfo.teamId,
+            points,
+            `Bioscope answer: ${currentRound.answer.title}`,
+            'bioscope',
+            bioscopeSession.id,
+          );
+          console.log(`[BioscopeService] ✓ Awarded ${points} points to team ${participantInfo.teamId} for participant ${participantInfo.displayName}`);
+        } else {
+          console.log(`[BioscopeService] No points to award for ${participantInfo.displayName} (incorrect answer)`);
+        }
+
+        // Track all score updates (even 0 points for wrong answers)
+        scoreUpdates.push({
+          participantId: answer.participantId,
+          teamId: participantInfo.teamId,
+          points,
+          participantName: participantInfo.displayName,
+        });
       }
     }
+
+    console.log('[BioscopeService] Score updates to emit:', scoreUpdates);
 
     // Update session status
     await this.prisma.bioscopeSession.update({
@@ -319,7 +395,8 @@ export class BioscopeService {
     await this.sessionGateway.emitSessionUpdate(sessionId);
     await this.bioscopeGateway.emitAnswerRevealed(sessionId, gameState);
 
-    return gameState;
+    console.log('[BioscopeService] revealAnswer completed. Returning', scoreUpdates.length, 'score updates');
+    return { gameState, scoreUpdates };
   }
 
   async submitAnswer(
@@ -422,6 +499,8 @@ export class BioscopeService {
           participant.teamId,
           pointsDelta,
           reason || 'Bioscope manual score adjustment',
+          'bioscope',
+          bioscopeSession.id,
         );
       }
     } else {
@@ -447,6 +526,8 @@ export class BioscopeService {
           participant.teamId,
           points,
           reason || 'Bioscope manual score',
+          'bioscope',
+          bioscopeSession.id,
         );
       }
     }

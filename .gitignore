@@ -12,8 +12,4 @@ coverage/
 
 # ignore local tools
 
-# SQLite dev DBs and backups
-services/api/prisma/*.db
-services/api/*.db
-services/api/dev.db.bak
-services/api/db-backups/
+

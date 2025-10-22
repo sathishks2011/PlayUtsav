@@ -99,16 +99,26 @@ export class BioscopeGateway implements OnGatewayConnection, OnGatewayDisconnect
   @SubscribeMessage(BIOSCOPE_EVENTS.REVEAL_ANSWER)
   async handleRevealAnswer(client: Socket, payload: RevealAnswerPayload) {
     try {
-      const state = await this.bioscopeService.revealAnswer(payload.sessionId);
+      const result = await this.bioscopeService.revealAnswer(payload.sessionId);
 
       // Stop timer
       this.stopTimer(payload.sessionId);
 
+      // Emit score update events for each participant
+      for (const update of result.scoreUpdates) {
+        this.emitScoreUpdate(payload.sessionId, {
+          participantId: update.participantId,
+          participantName: update.participantName,
+          points: update.points,
+          reason: 'correct_answer',
+        });
+      }
+
       // Emit answer revealed event
-      await this.emitAnswerRevealed(payload.sessionId, state);
-      
+      await this.emitAnswerRevealed(payload.sessionId, result.gameState);
+
       // Emit round complete event
-      await this.emitRoundComplete(payload.sessionId, state);
+      await this.emitRoundComplete(payload.sessionId, result.gameState);
     } catch (error: any) {
       this.logger.error(`[BioscopeGateway] Error revealing answer:`, error);
       client.emit('bioscope:error', { message: error.message });
@@ -387,9 +397,18 @@ export class BioscopeGateway implements OnGatewayConnection, OnGatewayDisconnect
       if (timeRemaining <= 0) {
         this.stopTimer(sessionId);
         // Auto-reveal answer when timer expires
-        this.bioscopeService.revealAnswer(sessionId).then((state) => {
-          this.emitAnswerRevealed(sessionId, state);
-          this.emitRoundComplete(sessionId, state);
+        this.bioscopeService.revealAnswer(sessionId).then((result) => {
+          // Emit score update events
+          for (const update of result.scoreUpdates) {
+            this.emitScoreUpdate(sessionId, {
+              participantId: update.participantId,
+              participantName: update.participantName,
+              points: update.points,
+              reason: 'correct_answer',
+            });
+          }
+          this.emitAnswerRevealed(sessionId, result.gameState);
+          this.emitRoundComplete(sessionId, result.gameState);
         });
       } else {
         // Emit timer tick

@@ -101,7 +101,11 @@ model Score {
   delta      Int      @default(0)
   reason     String?
   recordedBy String?
+  gameType   String?  // 'quiz' | 'bioscope' | null for legacy scores
+  gameId     String?  // ID of the specific quiz/bioscope session
   recordedAt DateTime @default(now())
+
+  @@index([sessionId, gameType])
 }
 
 model QuizRound {
