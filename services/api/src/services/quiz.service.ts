@@ -270,15 +270,28 @@ export class QuizService {
         // Create Score record for this answer
         const participantInfo = participantMap.get(answer.participantId) as { teamId: string | null; displayName: string } | undefined;
         if (participantInfo?.teamId) {
+          // Find the latest quiz score for this team to calculate cumulative value
+          // eslint-disable-next-line no-await-in-loop
+          const latestQuizScore = await (this.prisma as any).score.findFirst({
+            where: {
+              sessionId: round.sessionId,
+              teamId: participantInfo.teamId,
+              gameType: 'quiz',
+            },
+            orderBy: { recordedAt: 'desc' },
+          });
+
+          const cumulativeValue = (latestQuizScore?.value ?? 0) + scoringResult.result.totalPoints;
+
           // Create score record even for 0 points to track all answers
-          console.log(`[QuizService] Creating score record for ${participantInfo.displayName} (team: ${participantInfo.teamId}): delta=${scoringResult.result.totalPoints}, total=${scoringResult.stats.totalScore}, correct=${isCorrect}`);
-          
+          console.log(`[QuizService] Creating score record for ${participantInfo.displayName} (team: ${participantInfo.teamId}): delta=${scoringResult.result.totalPoints}, cumulative=${cumulativeValue}, correct=${isCorrect}`);
+
           // eslint-disable-next-line no-await-in-loop
           const scoreRecord = await (this.prisma as any).score.create({
             data: {
               sessionId: round.sessionId,
               teamId: participantInfo.teamId,
-              value: scoringResult.stats.totalScore,
+              value: cumulativeValue, // Use cumulative value for THIS game only
               delta: scoringResult.result.totalPoints,
               reason: isCorrect ? `Correct answer to question ${round.questionId}` : `Incorrect answer to question ${round.questionId}`,
               recordedBy: answer.participantId,
@@ -286,16 +299,16 @@ export class QuizService {
               gameId: round.id, // Use the quiz round ID as gameId
             },
           });
-          
+
           console.log(`[QuizService] Score record created:`, scoreRecord);
-          
+
           // Track for animation events - emit for ALL answers (correct and wrong)
           // This ensures sounds play and animations show even for 0-point answers
           scoreUpdates.push({
             participantId: answer.participantId,
             teamId: participantInfo.teamId,
             delta: scoringResult.result.totalPoints,
-            newTotal: scoringResult.stats.totalScore,
+            newTotal: cumulativeValue, // Use game-specific cumulative
           });
         }
       }
