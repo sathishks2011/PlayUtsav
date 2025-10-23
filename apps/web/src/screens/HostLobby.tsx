@@ -16,21 +16,24 @@ import { resetAllGames } from '../lib/api';
 
 function TeamCard({ team }: { team: Team }) {
   return (
-    <div className="rounded-lg border border-white/10 p-4 bg-white/5 backdrop-blur">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold" style={{ color: team.color ?? 'var(--color-primary)' }}>
+    <div className="rounded-lg border border-white/10 p-2 bg-white/5 backdrop-blur">
+      <div className="flex justify-between items-center gap-1">
+        <h3 className="text-xs font-semibold truncate" style={{ color: team.color ?? 'var(--color-primary)' }}>
           {team.name}
         </h3>
-        <span className="text-sm opacity-70">
-          <FormattedMessage id="hostLobby.members" defaultMessage="{count} members" values={{ count: team.participants.length }} />
+        <span className="text-xs opacity-60 whitespace-nowrap">
+          {team.participants.length}
         </span>
       </div>
-      <ul className="mt-2 text-sm space-y-1">
-        {team.participants.map((p) => (
-          <li key={p.id} className="opacity-80">{p.displayName}</li>
+      <ul className="mt-1 text-xs space-y-0.5">
+        {team.participants.slice(0, 3).map((p) => (
+          <li key={p.id} className="opacity-70 truncate">{p.displayName}</li>
         ))}
+        {team.participants.length > 3 && (
+          <li className="opacity-50 italic">+{team.participants.length - 3} more</li>
+        )}
         {team.participants.length === 0 && (
-          <li className="italic opacity-50">
+          <li className="italic opacity-40 text-xs">
             <FormattedMessage id="hostLobby.emptyTeam" defaultMessage="No members yet" />
           </li>
         )}
@@ -76,7 +79,6 @@ export function HostLobby() {
   };
 
   const lobbyParticipants = session.participants.filter((p) => p.role !== 'HOST');
-  const scores = computeTeamScores(session);
 
   const handleRemoveParticipant = (participantId: string, displayName: string) => {
     // Non-blocking remove: dispatch immediately and show toast
@@ -119,27 +121,27 @@ export function HostLobby() {
   }, [dispatch, intl, toast, session.id]);
 
   return (
-    <div className="w-full max-w-5xl space-y-6">
-      <header className="rounded-xl bg-white/10 backdrop-blur p-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="w-full max-w-5xl space-y-3">
+      <header className="rounded-lg bg-white/10 backdrop-blur p-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-lg font-bold">
             <FormattedMessage id="hostLobby.title" defaultMessage="Session code" />: {session.code}
           </h2>
-          <p className="opacity-80 text-sm">
+          <p className="opacity-70 text-xs">
             <FormattedMessage id="hostLobby.instructions" defaultMessage="Share this code or QR with your family." />
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => dispatch(resetSession())}
-            className="px-4 py-2 rounded border border-white/20 text-white hover:bg-white/10 transition"
+            className="px-2 py-1 text-xs rounded border border-white/20 text-white hover:bg-white/10 transition"
           >
             <FormattedMessage id="hostLobby.backToDashboard" defaultMessage="← Dashboard" />
           </button>
-          <button className="px-4 py-2 rounded bg-[var(--color-primary)] text-white" onClick={copyCode}>
+          <button className="px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white" onClick={copyCode}>
             <FormattedMessage id="hostLobby.copy" defaultMessage="Copy" />
           </button>
-          <span className="text-sm opacity-70">
+          <span className="text-xs opacity-70">
             <FormattedMessage
               id="hostLobby.players"
               defaultMessage="{count}/{max} joined"
@@ -149,20 +151,20 @@ export function HostLobby() {
         </div>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-3">
-          <h3 className="text-xl font-semibold">
+      <section className="grid gap-2 md:grid-cols-2">
+        <div className="rounded-lg bg-white/5 backdrop-blur p-3 space-y-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide">
             <FormattedMessage id="hostLobby.participants" defaultMessage="Lobby participants" />
           </h3>
-          <ul className="space-y-2 max-h-56 overflow-auto pr-2">
+          <ul className="space-y-1 max-h-32 overflow-auto pr-1">
             {lobbyParticipants.map((p) => (
-              <li key={p.id} className="rounded bg-white/10 px-3 py-2 flex items-center justify-between gap-2">
+              <li key={p.id} className="rounded bg-white/10 px-2 py-1 flex items-center justify-between gap-2 text-xs">
                 <span className="flex-shrink-0">{p.displayName}</span>
-                <div className="flex items-center gap-2 flex-1 justify-end">
+                <div className="flex items-center gap-1.5 flex-1 justify-end">
                   <select
                     value={p.teamId ?? ''}
                     onChange={(e) => handleAssignToTeam(p.id, e.target.value || null)}
-                    className="text-sm px-2 py-1 rounded border border-white/20 bg-black/30 min-w-[120px]"
+                    className="text-xs px-1.5 py-0.5 rounded border border-white/20 bg-black/30 min-w-[100px]"
                     title={`Assign ${p.displayName} to team`}
                   >
                     <option value="">
@@ -176,7 +178,7 @@ export function HostLobby() {
                   </select>
                   <button
                     onClick={() => handleRemoveParticipant(p.id, p.displayName)}
-                    className="px-2 py-1 text-xs border border-red-400/50 text-red-300 rounded hover:bg-red-500/20 transition"
+                    className="px-1.5 py-0.5 text-xs border border-red-400/50 text-red-300 rounded hover:bg-red-500/20 transition"
                     title={`Remove ${p.displayName}`}
                   >
                     ✕
@@ -185,72 +187,115 @@ export function HostLobby() {
               </li>
             ))}
             {lobbyParticipants.length === 0 && (
-              <li className="italic opacity-60">
+              <li className="italic opacity-60 text-xs">
                 <FormattedMessage id="hostLobby.waiting" defaultMessage="Waiting for players..." />
               </li>
             )}
           </ul>
         </div>
 
-        <form onSubmit={handleAddTeam} className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
+        <form onSubmit={handleAddTeam} className="rounded-lg bg-white/5 backdrop-blur p-3 space-y-2">
           <div>
-            <h3 className="text-xl font-semibold">
+            <h3 className="text-sm font-semibold uppercase tracking-wide">
               <FormattedMessage id="hostLobby.createTeam" defaultMessage="Create a team" />
             </h3>
-            <p className="text-sm opacity-70">
+            <p className="text-xs opacity-60">
               <FormattedMessage id="hostLobby.createTeamHint" defaultMessage="Add teams now or later during the game." />
             </p>
           </div>
-          
+
           {(teamError || sessionError) && (
-            <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+            <div className="rounded border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs text-red-200">
               {teamError || sessionError}
             </div>
           )}
-          
-          <label className="flex flex-col gap-1 text-sm">
+
+          <label className="flex flex-col gap-0.5 text-xs">
             <span><FormattedMessage id="hostLobby.teamName" defaultMessage="Team name" /></span>
             <input
-              className="rounded border border-white/20 bg-black/20 px-3 py-2"
+              className="rounded border border-white/20 bg-black/20 px-2 py-1 text-xs"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               placeholder={intl.formatMessage({ id: 'hostLobby.teamNamePlaceholder', defaultMessage: 'e.g., Lightning Lions' })}
             />
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-xs">
             <span><FormattedMessage id="hostLobby.teamColor" defaultMessage="Team color" /></span>
-            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-8 w-12 border border-white/30 rounded" />
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-6 w-10 border border-white/30 rounded" />
           </label>
-          <button type="submit" className="self-start px-4 py-2 rounded bg-[var(--color-primary)] text-white">
+          <button type="submit" className="self-start px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white">
             <FormattedMessage id="hostLobby.addTeam" defaultMessage="Add team" />
           </button>
         </form>
       </section>
 
-      <section className="space-y-3">
-        <h3 className="text-xl font-semibold">
-          <FormattedMessage id="hostLobby.teams" defaultMessage="Teams" />
-        </h3>
-        {session.teams.length === 0 && (
-          <p className="italic opacity-70">
-            <FormattedMessage id="hostLobby.noTeams" defaultMessage="No teams yet. Add one to get started." />
-          </p>
-        )}
-        <div className="grid gap-4 md:grid-cols-2">
-          {session.teams.map((team) => (
-            <TeamCard key={team.id} team={team} />
-          ))}
-        </div>
-      </section>
+      <div className="rounded-lg border border-white/20 bg-white/5 p-2">
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide">
+            <FormattedMessage id="hostLobby.teams" defaultMessage="Teams" />
+          </h3>
+          {session.teams.length === 0 && (
+            <p className="italic opacity-60 text-xs">
+              <FormattedMessage id="hostLobby.noTeams" defaultMessage="No teams yet. Add one to get started." />
+            </p>
+          )}
+          <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-4">
+            {session.teams.map((team) => (
+              <TeamCard key={team.id} team={team} />
+            ))}
+          </div>
+        </section>
+      </div>
+
+      {/* Overall Leaderboard - Shows cumulative scores across all games */}
+      {session.teams.length > 0 && (
+        <section className="rounded-lg bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 backdrop-blur p-2 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">🏆</span>
+            <h3 className="text-xs font-semibold uppercase tracking-wide">
+              <FormattedMessage id="hostLobby.overallLeaderboard" defaultMessage="Overall Leaderboard" />
+            </h3>
+          </div>
+          <div className="space-y-1">
+            {(() => {
+              // Compute overall scores across all games
+              const overallScores = computeTeamScores(session);
+              // Sort by total score descending
+              const sortedScores = [...overallScores].sort((a, b) => b.total - a.total);
+
+              return sortedScores.map(({ team, total }, index) => (
+                <div
+                  key={team.id}
+                  className="flex items-center justify-between px-2 py-1 rounded bg-white/5 border border-white/10"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold opacity-60 w-5 text-center">
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: team.color || 'var(--color-primary)' }}
+                      />
+                      <span className="font-semibold text-xs">{team.name}</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold">{total}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </section>
+      )}
 
       {/* Game Control Panel - Shows all games with scores and navigation */}
       {session.games && session.games.length > 0 && (
-        <section className="rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/20 backdrop-blur p-6 space-y-4">
+        <section className="rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-white/20 backdrop-blur p-2 space-y-1.5">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold">
+            <h3 className="text-xs font-semibold uppercase tracking-wide">
               <FormattedMessage id="hostLobby.gameControl" defaultMessage="Game Control" />
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => {
                   if (session.activeGameIndex > 0) {
@@ -258,7 +303,7 @@ export function HostLobby() {
                   }
                 }}
                 disabled={session.activeGameIndex === 0}
-                className="px-3 py-1.5 text-sm rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ← <FormattedMessage id="hostLobby.previousGame" defaultMessage="Previous" />
               </button>
@@ -269,14 +314,14 @@ export function HostLobby() {
                   }
                 }}
                 disabled={session.activeGameIndex === session.games.length - 1}
-                className="px-3 py-1.5 text-sm rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-xs rounded border border-white/20 text-white hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <FormattedMessage id="hostLobby.nextGame" defaultMessage="Next" /> →
               </button>
               <button
                 onClick={handleResetAllGames}
                 disabled={isResetting}
-                className={`px-3 py-1.5 text-sm rounded border transition ${
+                className={`px-2 py-1 text-xs rounded border transition ${
                   isResetting
                     ? 'bg-white/5 border-white/10 text-white/40 cursor-not-allowed opacity-60'
                     : 'bg-red-500/20 border-red-500/40 text-red-300 hover:bg-red-500/30'
@@ -292,11 +337,11 @@ export function HostLobby() {
           </div>
 
           {/* Game Score Cards */}
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-1.5 md:grid-cols-3 lg:grid-cols-4">
             {session.games.map((game, idx) => (
               <div
                 key={game.id}
-                className={`rounded-lg border p-4 transition-all cursor-pointer ${
+                className={`rounded-lg border p-2 transition-all cursor-pointer ${
                   idx === session.activeGameIndex
                     ? 'bg-white/10 border-green-500/50 shadow-lg shadow-green-500/20'
                     : 'bg-white/5 border-white/10 hover:bg-white/8'
@@ -306,41 +351,45 @@ export function HostLobby() {
                   dispatch(setActiveGameIndex(idx));
                 }}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{game.type === 'quiz' ? '📝' : '🎬'}</span>
+                <div className="flex items-start justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">{game.type === 'quiz' ? '📝' : '🎬'}</span>
                     <div>
-                      <h4 className="font-semibold">{game.name}</h4>
-                      <p className="text-xs opacity-60">
-                        {game.type === 'quiz' ? 'Quiz Game' : 'Bioscope Game'}
+                      <h4 className="font-semibold text-xs truncate">{game.name}</h4>
+                      <p className="text-xs opacity-40">
+                        {game.type === 'quiz' ? 'Quiz' : 'Bioscope'}
                       </p>
                     </div>
                   </div>
                   {idx === session.activeGameIndex && (
-                    <span className="px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-600 border border-green-500/30">
+                    <span className="px-1 py-0.5 text-xs rounded bg-green-500/20 text-green-600 border border-green-500/30 whitespace-nowrap">
                       Active
                     </span>
                   )}
                 </div>
 
                 {/* Team Scores for this game */}
-                {scores.length > 0 && (
-                  <div className="space-y-2 pt-3 border-t border-white/10">
-                    <p className="text-xs uppercase tracking-wider opacity-60 mb-2">Team Scores</p>
-                    {scores.map(({ team, total }) => (
-                      <div key={team.id} className="flex items-center justify-between text-sm">
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: team.color || 'var(--color-primary)' }}
-                          />
-                          {team.name}
-                        </span>
-                        <span className="font-bold">{total}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {(() => {
+                  // Compute scores filtered by this specific game's type
+                  const gameScores = computeTeamScores(session, game.type);
+                  return gameScores.length > 0 && (
+                    <div className="space-y-0.5 pt-1.5 border-t border-white/10">
+                      <p className="text-xs uppercase tracking-wider opacity-40 mb-0.5">Scores</p>
+                      {gameScores.map(({ team, total }) => (
+                        <div key={team.id} className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1 truncate">
+                            <span
+                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: team.color || 'var(--color-primary)' }}
+                            />
+                            <span className="truncate">{team.name}</span>
+                          </span>
+                          <span className="font-bold ml-1">{total}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -348,48 +397,52 @@ export function HostLobby() {
       )}
 
       {/* Active Game Card - Only render the currently active game */}
-      <div className="space-y-6 mt-6">
+      <div className="space-y-2">
         {session.games && session.games.length > 0 ? (
           (() => {
             const activeGame = session.games[session.activeGameIndex];
             if (!activeGame) {
-              return <div className="text-center text-sm opacity-60">No active game selected.</div>;
+              return <div className="text-center text-xs opacity-60">No active game selected.</div>;
             }
 
             return (
-              <div className="rounded-xl border border-white/20 bg-white/5 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg font-bold">{activeGame.type === 'quiz' ? '📝' : '🎬'} {activeGame.name}</span>
-                  <span className="ml-2 px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-600">Active</span>
+              <div className="!rounded-lg !border !border-white/20 !bg-white/5 !p-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-sm font-semibold">{activeGame.type === 'quiz' ? '📝' : '🎬'} {activeGame.name}</span>
+                  <span className="ml-1 px-1.5 py-0.5 text-xs rounded bg-green-500/20 text-green-600 border border-green-500/30">Active</span>
                 </div>
                 {/* Render the appropriate game panel based on type */}
-                {activeGame.type === 'quiz' && (
-                  <ErrorBoundary fallback={
-                    <div className="rounded-xl border border-red-800 bg-red-900/20 p-5 text-center">
-                      <p className="text-red-200">Quiz panel failed to load. Please refresh the page.</p>
-                    </div>
-                  }>
-                    <HostQuizPanel />
-                  </ErrorBoundary>
-                )}
-                {activeGame.type === 'bioscope' && (
-                  <ErrorBoundary fallback={
-                    <div className="rounded-xl border border-red-800 bg-red-900/20 p-5 text-center">
-                      <p className="text-red-200">Bioscope panel failed to load. Please refresh the page.</p>
-                    </div>
-                  }>
-                    <HostBioscopePanel />
-                  </ErrorBoundary>
-                )}
+                <div className="[&>*]:!p-0 [&>*]:!bg-transparent [&>*]:!border-0 [&>*]:!rounded-none">
+                  {activeGame.type === 'quiz' && (
+                    <ErrorBoundary fallback={
+                      <div className="rounded-lg border border-red-800 bg-red-900/20 p-2 text-center">
+                        <p className="text-red-200 text-xs">Quiz panel failed to load. Please refresh the page.</p>
+                      </div>
+                    }>
+                      <HostQuizPanel />
+                    </ErrorBoundary>
+                  )}
+                  {activeGame.type === 'bioscope' && (
+                    <ErrorBoundary fallback={
+                      <div className="rounded-lg border border-red-800 bg-red-900/20 p-2 text-center">
+                        <p className="text-red-200 text-xs">Bioscope panel failed to load. Please refresh the page.</p>
+                      </div>
+                    }>
+                      <HostBioscopePanel />
+                    </ErrorBoundary>
+                  )}
+                </div>
               </div>
             );
           })()
         ) : (
-          <div className="text-center text-sm opacity-60">No games attached to this session.</div>
+          <div className="text-center text-xs opacity-60">No games attached to this session.</div>
         )}
       </div>
 
-      <HostBuzzerControls />
+      <div className="rounded-lg border border-white/20 bg-white/5 p-2">
+        <HostBuzzerControls />
+      </div>
       <ThemeStudioPanel />
     </div>
   );

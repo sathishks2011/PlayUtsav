@@ -179,17 +179,17 @@ export function PlayerLobby() {
   }, [quizState?.status]);
 
   return (
-    <div className="w-full max-w-3xl space-y-4 pb-24">
+    <div className="w-full max-w-3xl space-y-2 pb-24">
       {/* Collapsible Welcome Header with Score Panel */}
-      <div className="rounded-xl bg-white/10 backdrop-blur overflow-hidden">
+      <div className="rounded-lg bg-white/10 backdrop-blur overflow-hidden">
         {/* Fixed Top Bar with Session Code and Leave Button */}
-        <div className="px-4 py-2 flex items-center justify-between border-b border-white/10 bg-white/5">
-          <span className="px-2.5 py-1 rounded-full bg-black/20 border border-white/10 text-xs font-mono opacity-70">
+        <div className="px-3 py-1.5 flex items-center justify-between border-b border-white/10 bg-white/5">
+          <span className="px-2 py-0.5 rounded-full bg-black/20 border border-white/10 text-xs font-mono opacity-70">
             {session.code}
           </span>
           <button
             onClick={handleLeaveSession}
-            className="px-3 py-1.5 text-sm border border-white/20 rounded hover:bg-white/10 transition"
+            className="px-2 py-1 text-xs border border-white/20 rounded hover:bg-white/10 transition"
             title="Leave session"
           >
             <FormattedMessage id="playerLobby.leaveSession" defaultMessage="Leave" />
@@ -198,10 +198,10 @@ export function PlayerLobby() {
 
         {/* Collapsible Section */}
         <details open className="group">
-          <summary className="cursor-pointer list-none px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors">
-            <span className="group-open:rotate-90 transition-transform text-sm opacity-70">▶</span>
+          <summary className="cursor-pointer list-none px-3 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors">
+            <span className="group-open:rotate-90 transition-transform text-xs opacity-70">▶</span>
             <div>
-              <h2 className="text-lg font-bold">
+              <h2 className="text-sm font-bold">
                 <FormattedMessage
                   id="playerLobby.welcome"
                   defaultMessage="Welcome, {name}!"
@@ -217,55 +217,104 @@ export function PlayerLobby() {
           </summary>
 
           {/* Collapsible Content: Scoreboard & Teams */}
-          <div className="px-4 pb-4 space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-3">
-          {/* Scoreboard Panel - Narrow Column */}
-          {scores.length > 0 && (
-            <div className="rounded-lg bg-black/20 border border-white/10 p-3">
-              <h4 className="text-xs font-semibold mb-2 opacity-70 uppercase tracking-wide">
-                <FormattedMessage id="playerLobby.scoreboard" defaultMessage="Scoreboard" />
+          <div className="px-3 pb-2 space-y-1.5">
+            {/* Overall Leaderboard - Full Width */}
+            {scores.length > 0 && (
+              <div className="rounded-lg bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border border-yellow-500/30 p-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-xs">🏆</span>
+                  <h4 className="text-xs font-semibold uppercase tracking-wide">
+                    <FormattedMessage id="playerLobby.overallLeaderboard" defaultMessage="Overall Leaderboard" />
+                  </h4>
+                </div>
+                <div className="space-y-1">
+                  {(() => {
+                    // Sort by total score descending
+                    const sortedScores = [...scores].sort((a, b) => b.total - a.total);
+                    return sortedScores.map(({ team, total, streak }, index) => (
+                      <div
+                        key={team.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded border ${
+                          team.id === myTeam?.id
+                            ? 'bg-[var(--color-primary)]/20 border-[var(--color-primary)]/40'
+                            : 'bg-white/5 border-white/10'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold opacity-60 w-4 text-center">
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+                          </span>
+                          <TeamNameBadge name={team.name} color={team.color} className="text-xs" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span id={`team-score-${team.id}`} className="font-bold text-xs">{total}</span>
+                          {streak > 0 && (
+                            <span className="text-xs text-emerald-200">🔥{streak}</span>
+                          )}
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-[140px_1fr] gap-1.5">
+          {/* Active Game Scoreboard - Narrow Column */}
+          {scores.length > 0 && activeGame && (
+            <div className="rounded-lg bg-black/20 border border-white/10 p-2">
+              <h4 className="text-xs font-semibold mb-1 opacity-60 uppercase tracking-wide">
+                <FormattedMessage
+                  id="playerLobby.gameScoreboard"
+                  defaultMessage="{gameType}"
+                  values={{ gameType: activeGame.type === 'quiz' ? 'Quiz' : 'Bioscope' }}
+                />
               </h4>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {scores.map(({ team, total, streak }) => (
-                  <div key={team.id} className="flex items-center justify-between px-2 py-1 rounded bg-white/5 text-sm">
-                    <TeamNameBadge name={team.name} color={team.color} className="text-xs" />
-                    <div className="flex items-center gap-1.5">
-                      <span id={`team-score-${team.id}`} className="font-bold text-sm">{total}</span>
-                      {streak > 0 && (
-                        <span className="text-xs text-emerald-200">🔥{streak}</span>
-                      )}
+              <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                {(() => {
+                  // Compute game-specific scores
+                  const gameScores = computeTeamScores(safeSession as any, activeGame.type);
+                  return gameScores.map(({ team, total }) => (
+                    <div key={team.id} className="flex items-center justify-between px-1.5 py-0.5 rounded bg-white/5 text-xs">
+                      <TeamNameBadge name={team.name} color={team.color} className="text-xs" />
+                      <span className="font-bold">{total}</span>
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </div>
           )}
 
           {/* Teams Panel - Wider Column with Tag-Style Members */}
           {teams.length > 0 && (
-            <div className="rounded-lg bg-black/20 border border-white/10 p-3">
-              <h4 className="text-xs font-semibold mb-2 opacity-70 uppercase tracking-wide">
+            <div className="rounded-lg bg-black/20 border border-white/10 p-2">
+              <h4 className="text-xs font-semibold mb-1 opacity-60 uppercase tracking-wide">
                 <FormattedMessage id="playerLobby.teams" defaultMessage="Teams" /> ({teams.length})
               </h4>
-              <div className="space-y-2.5 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5 max-h-24 overflow-y-auto">
                 {teams.map((team) => (
-                  <div key={team.id} className="rounded bg-white/5 p-2">
-                    <div className="flex items-center gap-2 mb-1.5">
+                  <div key={team.id} className="rounded bg-white/5 p-1">
+                    <div className="flex items-center gap-1 mb-0.5">
                       <TeamNameBadge name={team.name} color={team.color} className="text-xs" />
                       <span className="text-xs opacity-50">({team.participants.length})</span>
                     </div>
                     {team.participants.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {team.participants.map((p) => (
+                      <div className="flex flex-wrap gap-0.5">
+                        {team.participants.slice(0, 5).map((p) => (
                           <span
                             key={p.id}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border border-white/20 ${
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs border border-white/20 ${
                               p.id === participantId ? 'bg-[var(--color-primary)]/40 border-[var(--color-primary)]/60' : 'bg-white/10'
                             }`}
                           >
                             {p.displayName}
                           </span>
                         ))}
+                        {team.participants.length > 5 && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-xs opacity-50">
+                            +{team.participants.length - 5}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>

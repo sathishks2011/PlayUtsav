@@ -515,12 +515,12 @@ export function HostBioscopePanel() {
   }
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-5 space-y-5 shadow-lg shadow-black/20">
-        <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <section className="space-y-2">
+      <div className="space-y-2">
+        <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-white">Bioscope Host Controls</h2>
-            <p className="text-sm text-gray-400">
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wide">Bioscope Host Controls</h2>
+            <p className="text-xs text-gray-400">
               Reveal images, award points, and keep the game flowing.
             </p>
           </div>
@@ -595,17 +595,17 @@ export function HostBioscopePanel() {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="space-y-6">
-          <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-5 space-y-4">
-            <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="grid gap-2 lg:grid-cols-[1.4fr_1fr]">
+        <div className="space-y-2">
+          <div className="rounded-lg border border-gray-800 bg-gray-900/70 p-2 space-y-2">
+            <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white">Live Round Overview</h3>
-                <p className="text-sm text-gray-400">
+                <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Live Round Overview</h3>
+                <p className="text-xs text-gray-400">
                   Keep an eye on the timer and revealed images to pace the round.
                 </p>
               </div>
-              <div className="text-sm text-gray-400">
+              <div className="text-xs text-gray-400">
                 {currentGame?.template?.currentRound?.title ?? 'No round active'}
               </div>
             </header>
@@ -627,7 +627,7 @@ export function HostBioscopePanel() {
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-2">
           {/* Temporarily disabled buzzer controls to fix blank screen issue */}
           {/* {sessionId && bioscopeSession?.playerEngagementType === 'BUZZER' && (
             <HostBioscopeBuzzerControls sessionId={sessionId} />
@@ -641,9 +641,9 @@ export function HostBioscopePanel() {
             />
           )}
 
-          <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-5 space-y-4">
+          <div className="rounded-lg border border-gray-800 bg-gray-900/70 p-2 space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Round Controls</h3>
+              <h3 className="text-sm font-semibold text-white uppercase tracking-wide">Round Controls</h3>
               {currentGame?.template?.currentRound && (
                 <span className="text-sm text-gray-400">
                   Images revealed: {currentGame.revealedImages.length}

@@ -62,19 +62,19 @@ export function HostBuzzerControls() {
   };
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-2">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-lg font-semibold">
+          <h3 className="text-sm font-semibold uppercase tracking-wide">
             <FormattedMessage id="hostBuzzer.title" defaultMessage="Buzzer Controls" />
           </h3>
-          <p className="text-sm text-white/70">
+          <p className="text-xs text-white/60">
             <FormattedMessage id="hostBuzzer.subtitle" defaultMessage="Manage fast-response rounds and see who buzzed first." />
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em]">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs uppercase tracking-[0.2em]">
           <span
-            className={`rounded-full px-3 py-1 ${open ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60 border border-white/10'}`}
+            className={`rounded-full px-2 py-0.5 ${open ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/40' : 'bg-white/10 text-white/60 border border-white/10'}`}
           >
             {open ? (
               <FormattedMessage id="hostBuzzer.status.open" defaultMessage="Buzzer Open" />
@@ -83,18 +83,18 @@ export function HostBuzzerControls() {
             )}
           </span>
           {lockedParticipantId && (
-            <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1 text-amber-200">
+            <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-amber-200">
               <FormattedMessage id="hostBuzzer.status.locked" defaultMessage="Locked" />
             </span>
           )}
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
           onClick={handleOpen}
-          className="rounded bg-emerald-500/80 px-4 py-2 text-sm font-semibold text-white shadow disabled:opacity-50"
+          className="rounded bg-emerald-500/80 px-2 py-1 text-xs font-semibold text-white shadow disabled:opacity-50"
           aria-label={intl.formatMessage({ id: 'hostBuzzer.actions.open', defaultMessage: 'Open Buzzer' })}
           disabled={open}
         >
@@ -103,7 +103,7 @@ export function HostBuzzerControls() {
         <button
           type="button"
           onClick={handleClose}
-          className="rounded border border-white/20 px-4 py-2 text-sm font-semibold text-white/90 disabled:opacity-50"
+          className="rounded border border-white/20 px-2 py-1 text-xs font-semibold text-white/90 disabled:opacity-50"
           aria-label={intl.formatMessage({ id: 'hostBuzzer.actions.close', defaultMessage: 'Close' })}
           disabled={!open}
         >
@@ -112,7 +112,7 @@ export function HostBuzzerControls() {
         <button
           type="button"
           onClick={handleReset}
-          className="rounded border border-white/20 px-4 py-2 text-sm text-white/80 hover:bg-white/10"
+          className="rounded border border-white/20 px-2 py-1 text-xs text-white/80 hover:bg-white/10"
           aria-label={intl.formatMessage({ id: 'hostBuzzer.actions.reset', defaultMessage: 'Reset' })}
         >
           <FormattedMessage id="hostBuzzer.actions.reset" defaultMessage="Reset" />
@@ -120,7 +120,7 @@ export function HostBuzzerControls() {
       </div>
 
       {remainingSeconds != null && open && (
-        <div className="rounded border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80">
+        <div className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/70">
           <FormattedMessage
             id="hostBuzzer.timer"
             defaultMessage="Time remaining: {seconds}s"
@@ -129,9 +129,9 @@ export function HostBuzzerControls() {
         </div>
       )}
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/70">
+          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
             <FormattedMessage id="hostBuzzer.presses" defaultMessage="Buzzer Presses" />
           </h4>
           {presses.length > 0 && (
@@ -142,11 +142,11 @@ export function HostBuzzerControls() {
         </div>
 
         {presses.length === 0 ? (
-          <p className="rounded border border-dashed border-white/20 bg-white/5 px-4 py-5 text-center text-sm text-white/60">
+          <p className="rounded border border-dashed border-white/20 bg-white/5 px-2 py-2 text-center text-xs text-white/50">
             <FormattedMessage id="hostBuzzer.empty" defaultMessage="No buzzers yet. Open the buzzer to start a quick-fire round." />
           </p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-1.5">
             {presses.map((press, index) => {
               const teamInfo = press.teamId ? teamsById.get(press.teamId) : undefined;
               const locked = lockedParticipantId === press.participantId;
@@ -154,25 +154,25 @@ export function HostBuzzerControls() {
               return (
                 <li
                   key={`${press.participantId}-${press.timestamp}`}
-                  className={`flex items-center justify-between gap-3 rounded border ${
-                    index === 0 
-                      ? 'border-red-400/60 bg-red-500/10 ring-2 ring-red-400/40' 
+                  className={`flex items-center justify-between gap-2 rounded border ${
+                    index === 0
+                      ? 'border-red-400/60 bg-red-500/10 ring-2 ring-red-400/40'
                       : 'border-white/15 bg-white/5'
-                  } px-4 py-3`}
+                  } px-2 py-1.5`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
-                      index === 0 
-                        ? 'bg-red-500 text-white' 
+                  <div className="flex items-center gap-2">
+                    <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
+                      index === 0
+                        ? 'bg-red-500 text-white'
                         : 'bg-white/10 text-white/60'
                     }`}>
                       {orderNumber}
                     </div>
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-white/90">
+                      <span className="text-xs font-semibold text-white/90">
                         {press.participantName}
                         {locked && (
-                          <span className="ml-2 rounded bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-200">
+                          <span className="ml-1.5 rounded bg-emerald-500/20 px-1.5 py-0.5 text-xs text-emerald-200">
                             <FormattedMessage id="hostBuzzer.badges.answering" defaultMessage="Answering" />
                           </span>
                         )}
@@ -189,16 +189,16 @@ export function HostBuzzerControls() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {index === 0 && (
-                      <span className="rounded-full bg-red-500/20 px-3 py-1 text-xs font-bold text-red-200 uppercase tracking-[0.2em]">
+                      <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-200 uppercase tracking-[0.2em]">
                         <FormattedMessage id="hostBuzzer.badges.first" defaultMessage="1st" />
                       </span>
                     )}
                     <button
                       type="button"
                       onClick={() => handleOverride(press.participantId)}
-                      className={`rounded border px-3 py-1 text-xs font-semibold hover:bg-white/10 ${
+                      className={`rounded border px-2 py-0.5 text-xs font-semibold hover:bg-white/10 ${
                         locked
                           ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
                           : 'border-white/20 text-white/80'
@@ -207,9 +207,9 @@ export function HostBuzzerControls() {
                         { id: 'hostBuzzer.actions.allow', defaultMessage: 'Allow this player to answer' },
                       )}
                     >
-                      <FormattedMessage 
-                        id={locked ? 'hostBuzzer.actions.selected' : 'hostBuzzer.actions.allow'} 
-                        defaultMessage={locked ? 'Selected' : 'Allow'} 
+                      <FormattedMessage
+                        id={locked ? 'hostBuzzer.actions.selected' : 'hostBuzzer.actions.allow'}
+                        defaultMessage={locked ? 'Selected' : 'Allow'}
                       />
                     </button>
                   </div>

@@ -602,10 +602,10 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
   })();
 
   return (
-    <div id="quiz-panel" className="rounded-xl bg-white/5 backdrop-blur p-5 space-y-4">
+    <div id="quiz-panel" className="space-y-2">
       {/* Loading Template Indicator */}
       {loadingTemplate && (
-        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded text-sm text-blue-400">
+        <div className="p-2 bg-blue-500/10 border border-blue-500/20 rounded text-xs text-blue-400">
           <FormattedMessage 
             id="hostQuiz.loadingTemplate" 
             defaultMessage="⏳ Loading quiz template questions..." 
@@ -636,13 +636,13 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
         />
       )}
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-2">
         <div>
-          <h3 className="text-xl font-semibold">
+          <h3 className="text-sm font-semibold uppercase tracking-wide">
             <FormattedMessage id="hostQuiz.title" defaultMessage="Quiz round" />
           </h3>
           {quizState ? (
-            <p className="text-sm opacity-70">
+            <p className="text-xs opacity-60">
               <FormattedMessage
                 id="hostQuiz.running"
                 defaultMessage="Question running: {prompt}"
@@ -650,16 +650,16 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
               />
             </p>
           ) : (
-            <p className="text-sm opacity-70">
+            <p className="text-xs opacity-60">
               <FormattedMessage id="hostQuiz.ready" defaultMessage="Start a quick quiz to earn bonus points." />
             </p>
           )}
         </div>
         {showHostControls && (
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 flex-wrap">
             <button
               type="button"
-              className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
+              className="px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50"
               onClick={handleStart}
               disabled={loading || running}
             >
@@ -667,7 +667,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             </button>
             <button
               type="button"
-              className="px-4 py-2 rounded border border-white/20"
+              className="px-2 py-1 text-xs rounded border border-white/20"
               onClick={handleNextQuestion}
               disabled={loading || running}
             >
@@ -677,12 +677,12 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             {(running || revealed) && (
               <button
                 type="button"
-                className="px-4 py-2 rounded border border-orange-500/40 bg-orange-500/10 text-orange-300"
+                className="px-2 py-1 text-xs rounded border border-orange-500/40 bg-orange-500/10 text-orange-300"
                 onClick={handleSkipQuestion}
                 disabled={loading}
                 title="Skip current question and move to next"
               >
-                <FormattedMessage id="hostQuiz.skipQuestion" defaultMessage="⏭️ Skip Question" />
+                <FormattedMessage id="hostQuiz.skipQuestion" defaultMessage="⏭️ Skip" />
               </button>
             )}
             {/* Manual Round Navigation buttons - only show when using template */}
@@ -690,21 +690,21 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
               <>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded border border-blue-500/40 bg-blue-500/10 text-blue-300"
+                  className="px-2 py-1 text-xs rounded border border-blue-500/40 bg-blue-500/10 text-blue-300"
                   onClick={handleManualPreviousRound}
                   disabled={loading || running || currentCategoryIndex === 0}
                   title="Go back to previous round"
                 >
-                  <FormattedMessage id="hostQuiz.previousRound" defaultMessage="⏮️ Previous Round" />
+                  <FormattedMessage id="hostQuiz.previousRound" defaultMessage="⏮️ Prev" />
                 </button>
                 <button
                   type="button"
-                  className="px-4 py-2 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300"
+                  className="px-2 py-1 text-xs rounded border border-purple-500/40 bg-purple-500/10 text-purple-300"
                   onClick={handleManualNextRound}
                   disabled={loading || running}
                   title="Skip remaining questions and advance to next round"
                 >
-                  <FormattedMessage id="hostQuiz.nextRound" defaultMessage="Next Round ⏭️" />
+                  <FormattedMessage id="hostQuiz.nextRound" defaultMessage="Next ⏭️" />
                 </button>
               </>
             )}
@@ -712,7 +712,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             {running && autoRevealEnabled && (
               <button
                 type="button"
-                className="px-4 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 text-xs"
+                className="px-2 py-1 text-xs rounded border border-amber-500/40 bg-amber-500/10 text-amber-300"
                 onClick={() => {
                   console.log('[DEBUG] Manually triggering allAnswered state');
                   setAllAnswered(true);
@@ -727,30 +727,30 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
 
       {/* Question Preview - Show next question when no quiz is active */}
       {!quizState && question && (
-        <div className="space-y-3 border-2 border-dashed border-white/20 rounded-lg p-4 bg-white/5">
-          <div className="flex items-center gap-2 text-sm opacity-70">
+        <div className="space-y-2 border border-dashed border-white/20 rounded-lg p-2 bg-white/5">
+          <div className="flex items-center gap-1.5 text-xs opacity-60">
             <span>📝</span>
             <FormattedMessage id="hostQuiz.nextQuestionPreview" defaultMessage="Next Question Preview" />
           </div>
           <div>
-            <h4 className="font-semibold text-lg">{question.prompt}</h4>
-            <div className="mt-3 space-y-2">
+            <h4 className="font-semibold text-sm">{question.prompt}</h4>
+            <div className="mt-2 space-y-1">
               {question.options.map((option: string, idx: number) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 bg-black/20"
+                  className="flex items-center gap-2 rounded border border-white/10 px-2 py-1 bg-black/20 text-xs"
                 >
-                  <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs">
+                  <span className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-xs flex-shrink-0">
                     {String.fromCharCode(65 + idx)}
                   </span>
-                  <span>{option}</span>
+                  <span className="flex-1">{option}</span>
                   {idx === question.correct && showHostControls && (
-                    <span className="ml-auto text-emerald-400 text-xs">✓ Correct</span>
+                    <span className="ml-auto text-emerald-400 text-xs flex-shrink-0">✓</span>
                   )}
                 </div>
               ))}
             </div>
-            <div className="mt-3 text-xs opacity-70">
+            <div className="mt-2 text-xs opacity-60">
               <FormattedMessage 
                 id="hostQuiz.questionDetails" 
                 defaultMessage="Duration: {duration}s • Points: {points}" 
@@ -763,9 +763,9 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
 
       {/* Active Quiz */}
       {quizState && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div>
-            <h4 className="font-semibold text-lg">{quizState.prompt}</h4>
+            <h4 className="font-semibold text-sm">{quizState.prompt}</h4>
             <div className="mt-2 text-xs uppercase tracking-[0.2em] opacity-70 flex items-center gap-2">
               {running ? (
                 <span>
@@ -785,10 +785,10 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
               <span style={{ transform: `scaleX(${progress})` }} />
             </div>
             {allowPlayerInput ? (
-              <form onSubmit={handlePlayerSubmit} className="mt-3 space-y-3">
+              <form onSubmit={handlePlayerSubmit} className="mt-2 space-y-2">
                 {/* Buzzer mode access message */}
                 {isBuzzerMode && isLockedToSomeoneElse && !revealed && (
-                  <div className="px-4 py-3 rounded bg-yellow-500/20 border border-yellow-400/40 text-sm text-yellow-100">
+                  <div className="px-2 py-1.5 rounded bg-yellow-500/20 border border-yellow-400/40 text-xs text-yellow-100">
                     <FormattedMessage
                       id="playerQuiz.buzzerLocked"
                       defaultMessage="Another player buzzed first. Wait for host to reset buzzer."
@@ -796,7 +796,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                   </div>
                 )}
                 {isBuzzerMode && !buzzerState?.lockedForParticipantId && !revealed && (
-                  <div className="px-4 py-3 rounded bg-blue-500/20 border border-blue-400/40 text-sm text-blue-100">
+                  <div className="px-2 py-1.5 rounded bg-blue-500/20 border border-blue-400/40 text-xs text-blue-100">
                     <FormattedMessage
                       id="playerQuiz.buzzerWaiting"
                       defaultMessage="Press the buzzer at the bottom to answer this question!"
@@ -811,7 +811,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                   return (
                     <label
                       key={option}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                      className={`flex items-center gap-2 rounded border px-2 py-1 text-xs ${
                         canPlayerSubmit && !revealed && !submitted ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
                       } ${
                         isCorrect
@@ -828,7 +828,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                         checked={selected === idx}
                         onChange={() => setSelected(idx)}
                         disabled={revealed || submitted || !canPlayerSubmit}
-                        className="cursor-pointer"
+                        className="cursor-pointer w-3 h-3"
                       />
                       <span className={`flex-1 ${isWrongSelection ? 'text-red-300' : ''}`}>
                         {option}
@@ -849,14 +849,14 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                 {!submitted && !revealed && (
                   <button
                     type="submit"
-                    className="px-4 py-2 rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50 w-full"
+                    className="px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white disabled:bg-white/10 disabled:text-white/50 w-full"
                     disabled={selected == null || quizState.status !== 'running' || !canPlayerSubmit}
                   >
                     <FormattedMessage id="playerQuiz.submit" defaultMessage="Submit answer" />
                   </button>
                 )}
                 {submitted && !revealed && (
-                  <div className="px-4 py-3 rounded bg-emerald-500/20 border border-emerald-400/40 text-sm text-emerald-100">
+                  <div className="px-2 py-1.5 rounded bg-emerald-500/20 border border-emerald-400/40 text-xs text-emerald-100">
                     <FormattedMessage
                       id="playerQuiz.waitingForOthers"
                       defaultMessage="Answer submitted! Waiting for others..."
@@ -865,11 +865,11 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
                 )}
               </form>
             ) : (
-              <ol className="mt-3 space-y-2">
+              <ol className="mt-2 space-y-1">
                 {quizState.options.map((option, idx) => (
                   <li
                     key={option}
-                    className={`rounded border border-white/10 px-3 py-2 flex justify-between items-center ${
+                    className={`rounded border border-white/10 px-2 py-1 text-xs flex justify-between items-center ${
                       revealed && idx === quizState.correctOption ? 'bg-emerald-500/20 border-emerald-400/40' : 'bg-black/20'
                     }`}
                   >
@@ -885,7 +885,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
             )}
           </div>
 
-          <div className="rounded-lg bg-black/30 border border-white/10 p-3 text-sm">
+          <div className="rounded bg-black/30 border border-white/10 p-2 text-xs">
             <div className="flex items-center justify-between">
               <FormattedMessage
                 id="hostQuiz.answers"
@@ -929,7 +929,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
               {allAnswered && autoRevealEnabled && running && (
                 <button
                   type="button"
-                  className="px-4 py-2 rounded bg-amber-500/20 border border-amber-400/40 text-amber-200"
+                  className="px-2 py-1 text-xs rounded bg-amber-500/20 border border-amber-400/40 text-amber-200"
                   onClick={handleReveal}
                   disabled={revealed}
                 >
@@ -938,7 +938,7 @@ export function HostQuizPanel({ showHostControls = true, allowPlayerInput = fals
               )}
               <button
                 type="button"
-                className="px-4 py-2 rounded bg-white/10"
+                className="px-2 py-1 text-xs rounded bg-white/10"
                 onClick={handleReveal}
                 disabled={revealed}
               >

@@ -27,6 +27,8 @@ export type Score = {
   reason?: string | null;
   recordedBy?: string | null;
   recordedAt: string;
+  gameType?: string | null;  // 'quiz' | 'bioscope' | null
+  gameId?: string | null;     // ID of the specific game instance
 };
 
 export type SessionStatus = 'LOBBY' | 'ACTIVE' | 'ENDED';
